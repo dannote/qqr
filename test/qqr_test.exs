@@ -1,8 +1,7 @@
 defmodule QQRTest do
   use ExUnit.Case
-  doctest QQR
 
-  test "greets the world" do
-    assert QQR.hello() == :world
+  test "decode_matrix returns error for nil" do
+    assert :error = QQR.decode_matrix(nil)
   end
 end

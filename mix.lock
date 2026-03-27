@@ -1,0 +1,8 @@
+%{
+  "ex_maybe": {:hex, :ex_maybe, "1.1.1", "95c0188191b43bd278e876ae4f0a688922e3ca016a9efd97ee7a0b741a61b899", [:mix], [], "hexpm", "1af8c78c915c7f119a513b300a1702fc5cc9fed42d54fd85995265e4c4b763d2"},
+  "matrix_reloaded": {:hex, :matrix_reloaded, "2.3.0", "eea41bc6713021f8f51dde0c2d6b72e695a99098753baebf0760e10aed8fa777", [:mix], [{:ex_maybe, "~> 1.0", [hex: :ex_maybe, repo: "hexpm", optional: false]}, {:result, "~> 1.7", [hex: :result, repo: "hexpm", optional: false]}], "hexpm", "4013c0cebe5dfffc8f2316675b642fb2f5a1dfc4bdc40d2c0dfa0563358fa496"},
+  "pngex": {:hex, :pngex, "0.1.2", "824c2da291fda236397729f236b29f87b98a434d58124ea9f7fa03d3b3cf8587", [:mix], [], "hexpm", "9f9f2d9aa286d03f6c317017a09e1b548fa0aa6b901291e24dbf65d8212b22b0"},
+  "qr_code": {:hex, :qr_code, "3.2.0", "416ad75b7284c1b43c3a248bae0304ac933dc16ba501af49f22c0262e55916e1", [:mix], [{:ex_maybe, "~> 1.1.1", [hex: :ex_maybe, repo: "hexpm", optional: false]}, {:matrix_reloaded, "~> 2.3", [hex: :matrix_reloaded, repo: "hexpm", optional: false]}, {:pngex, "~> 0.1.0", [hex: :pngex, repo: "hexpm", optional: false]}, {:result, "~> 1.7", [hex: :result, repo: "hexpm", optional: false]}, {:xml_builder, "~> 2.3", [hex: :xml_builder, repo: "hexpm", optional: false]}], "hexpm", "fc5366d61087753a781c2e2d2659fce71f91b6258c8341f0ee47f31d5a185497"},
+  "result": {:hex, :result, "1.7.2", "a57c569f7cf5c158d2299d3b5624a48b69bd1520d0771dc711bcf9f3916e8ab6", [:mix], [], "hexpm", "89f98e98cfbf64237ecf4913aa36b76b80463e087775d19953dc4b435a35f087"},
+  "xml_builder": {:hex, :xml_builder, "2.4.0", "b20d23077266c81f593360dc037ea398461dddb6638a329743da6c73afa56725", [:mix], [], "hexpm", "833e325bb997f032b5a1b740d2fd6feed3c18ca74627f9f5f30513a9ae1a232d"},
+}
