@@ -2,14 +2,32 @@ defmodule QQR do
   @moduledoc """
   Pure Elixir QR code decoder.
 
-  ## Usage
+  ## From RGBA pixels
 
-      case QQR.decode(rgba_pixels, width, height) do
+      case QQR.decode(rgba_binary, width, height) do
         {:ok, result} ->
-          IO.puts(result.text)
+          result.text     #=> "https://example.com"
+          result.version  #=> 3
+          result.location #=> %{top_left_corner: {10.5, 10.5}, ...}
+
         :error ->
-          IO.puts("No QR code found")
+          :no_qr_found
       end
+
+  `rgba_binary` is a binary of RGBA pixels — 4 bytes per pixel, same layout
+  as `ImageData` in browsers or what most image libraries produce.
+
+  ## From a module grid
+
+  If you already have a binarized grid, skip the binarizer:
+
+      QQR.decode_matrix(bit_matrix)
+
+  ## Inversion
+
+  By default both normal and inverted (light-on-dark) images are tried.
+  Pass `inversion: :dont_invert` for ~2× speedup when you know the
+  background is white.
   """
 
   alias QQR.{Binarizer, Decoder, Extractor, Locator}
@@ -37,6 +55,18 @@ defmodule QQR do
 
   @type option :: {:inversion, :dont_invert | :only_invert | :attempt_both | :invert_first}
 
+  @doc """
+  Decode a QR code from raw RGBA pixel data.
+
+  Returns `{:ok, result}` with decoded text, bytes, chunks, version, and
+  location coordinates, or `:error` if no valid QR code is found.
+
+  ## Options
+
+    * `:inversion` — `:attempt_both` (default), `:dont_invert`, `:only_invert`,
+      or `:invert_first`
+
+  """
   @spec decode(binary(), pos_integer(), pos_integer(), [option()]) :: {:ok, result()} | :error
   def decode(rgba, width, height, opts \\ []) do
     inversion = Keyword.get(opts, :inversion, :attempt_both)
@@ -62,6 +92,13 @@ defmodule QQR do
     end
   end
 
+  @doc """
+  Decode a QR code from a pre-binarized module grid.
+
+  Skips binarization and finder pattern detection — the matrix must be a
+  clean, rectified grid of modules (as produced by `QQR.Extractor` or an
+  external QR encoder library).
+  """
   @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, map()} | :error
   def decode_matrix(matrix), do: Decoder.decode(matrix)
 
