@@ -80,4 +80,4 @@ GF(256) exp/log tables are generated at compile time and stored as pattern-match
 
 ## License
 
-[Apache-2.0](LICENSE)
+[MIT](LICENSE)
