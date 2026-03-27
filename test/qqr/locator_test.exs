@@ -46,10 +46,7 @@ defmodule QQR.LocatorTest do
       m = build_qr_matrix()
       result = Locator.locate(m)
 
-      assert is_list(result)
-      assert length(result) >= 1
-
-      location = hd(result)
+      assert [location | _] = result
 
       assert Map.has_key?(location, :top_left)
       assert Map.has_key?(location, :top_right)
@@ -82,10 +79,7 @@ defmodule QQR.LocatorTest do
 
       result = Locator.locate(m)
 
-      assert is_list(result)
-      assert length(result) >= 1
-
-      location = hd(result)
+      assert [location | _] = result
       assert location.dimension > 0
     end
   end

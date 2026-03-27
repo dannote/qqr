@@ -12,7 +12,7 @@ defmodule QQR do
       end
   """
 
-  alias QQR.{Binarizer, Locator, Extractor, Decoder}
+  alias QQR.{Binarizer, Decoder, Extractor, Locator}
 
   @type result :: %{
           text: String.t(),
@@ -73,25 +73,27 @@ defmodule QQR do
         :error
 
       locations ->
-        Enum.find_value(locations, :error, fn location ->
-          extractor_location = %{
-            top_left: location.top_left,
-            top_right: location.top_right,
-            bottom_left: location.bottom_left,
-            alignment_pattern: location.alignment,
-            dimension: location.dimension
-          }
+        Enum.find_value(locations, :error, &try_decode_location(matrix, &1))
+    end
+  end
 
-          {extracted, mapping_fn} = Extractor.extract(matrix, extractor_location)
+  defp try_decode_location(matrix, location) do
+    extractor_location = %{
+      top_left: location.top_left,
+      top_right: location.top_right,
+      bottom_left: location.bottom_left,
+      alignment_pattern: location.alignment,
+      dimension: location.dimension
+    }
 
-          case Decoder.decode(extracted) do
-            {:ok, decoded} ->
-              {:ok, Map.put(decoded, :location, build_location(location, mapping_fn))}
+    {extracted, mapping_fn} = Extractor.extract(matrix, extractor_location)
 
-            :error ->
-              nil
-          end
-        end)
+    case Decoder.decode(extracted) do
+      {:ok, decoded} ->
+        {:ok, Map.put(decoded, :location, build_location(location, mapping_fn))}
+
+      :error ->
+        nil
     end
   end
 

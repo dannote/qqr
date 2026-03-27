@@ -20,15 +20,16 @@ defmodule QQR.DataDecoderTest do
     test "decodes '1234567890'" do
       # Mode 0x1, count=10 (10 bits for v1-9)
       # 123 -> 10 bits, 456 -> 10 bits, 789 -> 10 bits, 0 -> 4 bits
-      payload = build_payload([
-        {0x1, 4},
-        {10, 10},
-        {123, 10},
-        {456, 10},
-        {789, 10},
-        {0, 4},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x1, 4},
+          {10, 10},
+          {123, 10},
+          {456, 10},
+          {789, 10},
+          {0, 4},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "1234567890"
@@ -38,12 +39,13 @@ defmodule QQR.DataDecoderTest do
 
     test "decodes a two-digit remainder" do
       # "12" -> count=2, pair 12 in 7 bits
-      payload = build_payload([
-        {0x1, 4},
-        {2, 10},
-        {12, 7},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x1, 4},
+          {2, 10},
+          {12, 7},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "12"
@@ -51,12 +53,13 @@ defmodule QQR.DataDecoderTest do
 
     test "decodes a single-digit remainder" do
       # "1" -> count=1, digit 1 in 4 bits
-      payload = build_payload([
-        {0x1, 4},
-        {1, 10},
-        {1, 4},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x1, 4},
+          {1, 10},
+          {1, 4},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "1"
@@ -68,17 +71,18 @@ defmodule QQR.DataDecoderTest do
       # Mode 0x2, count=11 (9 bits for v1-9)
       # Pairs: HE=17*45+14=779, LL=21*45+21=966, O =24*45+36=1116,
       #        WO=32*45+24=1464, RL=27*45+21=1236, D=13
-      payload = build_payload([
-        {0x2, 4},
-        {11, 9},
-        {17 * 45 + 14, 11},
-        {21 * 45 + 21, 11},
-        {24 * 45 + 36, 11},
-        {32 * 45 + 24, 11},
-        {27 * 45 + 21, 11},
-        {13, 6},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x2, 4},
+          {11, 9},
+          {17 * 45 + 14, 11},
+          {21 * 45 + 21, 11},
+          {24 * 45 + 36, 11},
+          {32 * 45 + 24, 11},
+          {27 * 45 + 21, 11},
+          {13, 6},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "HELLO WORLD"
@@ -86,12 +90,13 @@ defmodule QQR.DataDecoderTest do
     end
 
     test "decodes even-length string 'AB'" do
-      payload = build_payload([
-        {0x2, 4},
-        {2, 9},
-        {10 * 45 + 11, 11},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x2, 4},
+          {2, 9},
+          {10 * 45 + 11, 11},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "AB"
@@ -101,16 +106,17 @@ defmodule QQR.DataDecoderTest do
   describe "byte mode" do
     test "decodes 'Hello'" do
       # Mode 0x4, count=5 (8 bits for v1-9), then 5 bytes
-      payload = build_payload([
-        {0x4, 4},
-        {5, 8},
-        {?H, 8},
-        {?e, 8},
-        {?l, 8},
-        {?l, 8},
-        {?o, 8},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x4, 4},
+          {5, 8},
+          {?H, 8},
+          {?e, 8},
+          {?l, 8},
+          {?l, 8},
+          {?o, 8},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "Hello"
@@ -134,16 +140,17 @@ defmodule QQR.DataDecoderTest do
 
   describe "mixed modes" do
     test "numeric followed by byte" do
-      payload = build_payload([
-        {0x1, 4},
-        {3, 10},
-        {123, 10},
-        {0x4, 4},
-        {2, 8},
-        {?A, 8},
-        {?B, 8},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x1, 4},
+          {3, 10},
+          {123, 10},
+          {0x4, 4},
+          {2, 8},
+          {?A, 8},
+          {?B, 8},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "123AB"
@@ -156,14 +163,15 @@ defmodule QQR.DataDecoderTest do
   describe "version size classes" do
     test "version 10 uses medium count bit sizes" do
       # Byte mode count is 16 bits for v10-26
-      payload = build_payload([
-        {0x4, 4},
-        {3, 16},
-        {?X, 8},
-        {?Y, 8},
-        {?Z, 8},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x4, 4},
+          {3, 16},
+          {?X, 8},
+          {?Y, 8},
+          {?Z, 8},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 10)
       assert result.text == "XYZ"
@@ -171,13 +179,14 @@ defmodule QQR.DataDecoderTest do
 
     test "version 27 uses large count bit sizes" do
       # Byte mode count is 16 bits for v27-40
-      payload = build_payload([
-        {0x4, 4},
-        {2, 16},
-        {?!, 8},
-        {??, 8},
-        {0x0, 4}
-      ])
+      payload =
+        build_payload([
+          {0x4, 4},
+          {2, 16},
+          {?!, 8},
+          {??, 8},
+          {0x0, 4}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 27)
       assert result.text == "!?"
@@ -186,26 +195,28 @@ defmodule QQR.DataDecoderTest do
 
   describe "terminator" do
     test "stops at terminator mode" do
-      payload = build_payload([
-        {0x4, 4},
-        {1, 8},
-        {?A, 8},
-        {0x0, 4},
-        {0x4, 4},
-        {1, 8},
-        {?B, 8}
-      ])
+      payload =
+        build_payload([
+          {0x4, 4},
+          {1, 8},
+          {?A, 8},
+          {0x0, 4},
+          {0x4, 4},
+          {1, 8},
+          {?B, 8}
+        ])
 
       assert {:ok, result} = DataDecoder.decode(payload, 1)
       assert result.text == "A"
     end
 
     test "stops when fewer than 4 bits remain" do
-      payload = build_payload([
-        {0x4, 4},
-        {1, 8},
-        {?Z, 8}
-      ])
+      payload =
+        build_payload([
+          {0x4, 4},
+          {1, 8},
+          {?Z, 8}
+        ])
 
       # 20 bits = 2.5 bytes -> padded to 3 bytes = 24 bits, only 4 bits remain after reading
       assert {:ok, result} = DataDecoder.decode(payload, 1)

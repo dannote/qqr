@@ -1,9 +1,9 @@
 defmodule QQR.ReedSolomonTest do
   use ExUnit.Case, async: true
 
-  alias QQR.ReedSolomon
   alias QQR.GaloisField, as: GF
   alias QQR.GFPoly
+  alias QQR.ReedSolomon
   import Bitwise
 
   # QR Version 1-M uses RS(26, 16) — 16 data + 10 EC codewords
@@ -34,17 +34,16 @@ defmodule QQR.ReedSolomonTest do
   defp poly_mod(dividend, divisor) do
     Enum.reduce(0..(length(dividend) - length(divisor)), dividend, fn i, rem_poly ->
       coeff = Enum.at(rem_poly, i)
-
-      if coeff != 0 do
-        Enum.with_index(divisor)
-        |> Enum.reduce(rem_poly, fn {d, j}, acc ->
-          List.update_at(acc, i + j, &bxor(&1, GF.multiply(d, coeff)))
-        end)
-      else
-        rem_poly
-      end
+      if coeff != 0, do: poly_mod_step(rem_poly, divisor, coeff, i), else: rem_poly
     end)
     |> Enum.drop(length(dividend) - length(divisor) + 1)
+  end
+
+  defp poly_mod_step(rem_poly, divisor, coeff, offset) do
+    Enum.with_index(divisor)
+    |> Enum.reduce(rem_poly, fn {d, j}, acc ->
+      List.update_at(acc, offset + j, &bxor(&1, GF.multiply(d, coeff)))
+    end)
   end
 
   setup_all do

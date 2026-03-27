@@ -32,7 +32,14 @@ defmodule QQR.BitMatrix do
     %{m | data: :erlang.setelement(y * w + x + 1, data, if(value, do: 1, else: 0))}
   end
 
-  @spec set_region(t(), non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer(), boolean()) :: t()
+  @spec set_region(
+          t(),
+          non_neg_integer(),
+          non_neg_integer(),
+          non_neg_integer(),
+          non_neg_integer(),
+          boolean()
+        ) :: t()
   def set_region(%__MODULE__{} = matrix, _left, _top, 0, _height, _value), do: matrix
   def set_region(%__MODULE__{} = matrix, _left, _top, _width, 0, _value), do: matrix
 

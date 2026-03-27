@@ -58,6 +58,7 @@ defmodule QQR.BitStreamTest do
 
     test "raises when not enough bits" do
       stream = BitStream.new([0xFF])
+
       assert_raise RuntimeError, "Not enough bits available", fn ->
         BitStream.read_bits(stream, 9)
       end
@@ -66,6 +67,7 @@ defmodule QQR.BitStreamTest do
     test "raises after exhaustion" do
       stream = BitStream.new([0xFF])
       {_, stream} = BitStream.read_bits(stream, 8)
+
       assert_raise RuntimeError, "Not enough bits available", fn ->
         BitStream.read_bits(stream, 1)
       end

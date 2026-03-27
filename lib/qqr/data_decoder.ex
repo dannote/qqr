@@ -41,41 +41,44 @@ defmodule QQR.DataDecoder do
       {:ok, Enum.reverse(chunks)}
     else
       {mode, stream} = BitStream.read_bits(stream, 4)
-
-      case mode do
-        0x0 ->
-          {:ok, Enum.reverse(chunks)}
-
-        0x1 ->
-          with {:ok, chunk, stream} <- decode_numeric(stream, size_class) do
-            decode_loop(stream, size_class, [chunk | chunks])
-          end
-
-        0x2 ->
-          with {:ok, chunk, stream} <- decode_alphanumeric(stream, size_class) do
-            decode_loop(stream, size_class, [chunk | chunks])
-          end
-
-        0x4 ->
-          with {:ok, chunk, stream} <- decode_byte(stream, size_class) do
-            decode_loop(stream, size_class, [chunk | chunks])
-          end
-
-        0x7 ->
-          with {:ok, stream} <- decode_eci(stream) do
-            decode_loop(stream, size_class, chunks)
-          end
-
-        0x8 ->
-          with {:ok, chunk, stream} <- decode_kanji(stream, size_class) do
-            decode_loop(stream, size_class, [chunk | chunks])
-          end
-
-        _ ->
-          {:error, "Unknown mode: #{mode}"}
-      end
+      decode_mode(mode, stream, size_class, chunks)
     end
   end
+
+  defp decode_mode(0x0, _stream, _size_class, chunks), do: {:ok, Enum.reverse(chunks)}
+
+  defp decode_mode(0x1, stream, size_class, chunks) do
+    with {:ok, chunk, stream} <- decode_numeric(stream, size_class) do
+      decode_loop(stream, size_class, [chunk | chunks])
+    end
+  end
+
+  defp decode_mode(0x2, stream, size_class, chunks) do
+    with {:ok, chunk, stream} <- decode_alphanumeric(stream, size_class) do
+      decode_loop(stream, size_class, [chunk | chunks])
+    end
+  end
+
+  defp decode_mode(0x4, stream, size_class, chunks) do
+    with {:ok, chunk, stream} <- decode_byte(stream, size_class) do
+      decode_loop(stream, size_class, [chunk | chunks])
+    end
+  end
+
+  defp decode_mode(0x7, stream, size_class, chunks) do
+    with {:ok, stream} <- decode_eci(stream) do
+      decode_loop(stream, size_class, chunks)
+    end
+  end
+
+  defp decode_mode(0x8, stream, size_class, chunks) do
+    with {:ok, chunk, stream} <- decode_kanji(stream, size_class) do
+      decode_loop(stream, size_class, [chunk | chunks])
+    end
+  end
+
+  defp decode_mode(mode, _stream, _size_class, _chunks),
+    do: {:error, "Unknown mode: #{mode}"}
 
   defp decode_numeric(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.numeric, size_class)
@@ -180,7 +183,6 @@ defmodule QQR.DataDecoder do
     e -> {:error, Exception.message(e)}
   end
 
-  # TODO: Shift-JIS text conversion
   defp decode_kanji(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.kanji, size_class)
     {count, stream} = BitStream.read_bits(stream, count_bits)
@@ -189,11 +191,7 @@ defmodule QQR.DataDecoder do
       Enum.reduce(1..count//1, {[], stream}, fn _, {acc, s} ->
         {val, s} = BitStream.read_bits(s, 13)
 
-        combined =
-          cond do
-            val + 0x8140 <= 0x9FFC -> val + 0x8140
-            true -> val + 0xC140
-          end
+        combined = if val + 0x8140 <= 0x9FFC, do: val + 0x8140, else: val + 0xC140
 
         hi = Bitwise.bsr(combined, 8) |> Bitwise.band(0xFF)
         lo = Bitwise.band(combined, 0xFF)

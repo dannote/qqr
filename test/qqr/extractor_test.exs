@@ -74,7 +74,10 @@ defmodule QQR.ExtractorTest do
       t = {2.0, 3.0, 0.1, 4.0, 5.0, 0.2, 6.0, 7.0, 1.0}
       result = Extractor.transform_multiply(t, identity)
 
-      t |> Tuple.to_list() |> Enum.zip(Tuple.to_list(result)) |> Enum.each(fn {a, b} ->
+      t
+      |> Tuple.to_list()
+      |> Enum.zip(Tuple.to_list(result))
+      |> Enum.each(fn {a, b} ->
         assert_in_delta a, b, 1.0e-12
       end)
     end

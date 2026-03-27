@@ -9,14 +9,38 @@ defmodule QQR.Decoder do
   alias QQR.Version
 
   @format_info_table [
-    {0x5412, {1, 0}}, {0x5125, {1, 1}}, {0x5E7C, {1, 2}}, {0x5B4B, {1, 3}},
-    {0x45F9, {1, 4}}, {0x40CE, {1, 5}}, {0x4F97, {1, 6}}, {0x4AA0, {1, 7}},
-    {0x77C4, {0, 0}}, {0x72F3, {0, 1}}, {0x7DAA, {0, 2}}, {0x789D, {0, 3}},
-    {0x662F, {0, 4}}, {0x6318, {0, 5}}, {0x6C41, {0, 6}}, {0x6976, {0, 7}},
-    {0x1689, {3, 0}}, {0x13BE, {3, 1}}, {0x1CE7, {3, 2}}, {0x19D0, {3, 3}},
-    {0x0762, {3, 4}}, {0x0255, {3, 5}}, {0x0D0C, {3, 6}}, {0x083B, {3, 7}},
-    {0x355F, {2, 0}}, {0x3068, {2, 1}}, {0x3F31, {2, 2}}, {0x3A06, {2, 3}},
-    {0x24B4, {2, 4}}, {0x2183, {2, 5}}, {0x2EDA, {2, 6}}, {0x2BED, {2, 7}}
+    {0x5412, {1, 0}},
+    {0x5125, {1, 1}},
+    {0x5E7C, {1, 2}},
+    {0x5B4B, {1, 3}},
+    {0x45F9, {1, 4}},
+    {0x40CE, {1, 5}},
+    {0x4F97, {1, 6}},
+    {0x4AA0, {1, 7}},
+    {0x77C4, {0, 0}},
+    {0x72F3, {0, 1}},
+    {0x7DAA, {0, 2}},
+    {0x789D, {0, 3}},
+    {0x662F, {0, 4}},
+    {0x6318, {0, 5}},
+    {0x6C41, {0, 6}},
+    {0x6976, {0, 7}},
+    {0x1689, {3, 0}},
+    {0x13BE, {3, 1}},
+    {0x1CE7, {3, 2}},
+    {0x19D0, {3, 3}},
+    {0x0762, {3, 4}},
+    {0x0255, {3, 5}},
+    {0x0D0C, {3, 6}},
+    {0x083B, {3, 7}},
+    {0x355F, {2, 0}},
+    {0x3068, {2, 1}},
+    {0x3F31, {2, 2}},
+    {0x3A06, {2, 3}},
+    {0x24B4, {2, 4}},
+    {0x2183, {2, 5}},
+    {0x2EDA, {2, 6}},
+    {0x2BED, {2, 7}}
   ]
 
   @spec decode(BitMatrix.t() | nil) :: {:ok, map()} | :error
@@ -97,21 +121,17 @@ defmodule QQR.Decoder do
 
   defp find_best_version(top_right_bits, bottom_left_bits) do
     {best_version, best_diff} =
-      Enum.reduce(7..40, {nil, :infinity}, fn n, {_best_v, best_d} = best ->
+      Enum.reduce(7..40, {nil, :infinity}, fn n, best ->
         v = Version.get(n)
-
-        if v.info_bits == top_right_bits or v.info_bits == bottom_left_bits do
-          {v, 0}
-        else
-          d1 = num_bits_differing(top_right_bits, v.info_bits)
-          d2 = num_bits_differing(bottom_left_bits, v.info_bits)
-          min_d = min(d1, d2)
-
-          if min_d < best_d, do: {v, min_d}, else: best
-        end
+        pick_closer_version(v, top_right_bits, bottom_left_bits, best)
       end)
 
     if best_diff <= 3, do: {:ok, best_version}, else: :error
+  end
+
+  defp pick_closer_version(v, bits1, bits2, {_best_v, best_d} = best) do
+    d = min(num_bits_differing(bits1, v.info_bits), num_bits_differing(bits2, v.info_bits))
+    if d < best_d, do: {v, d}, else: best
   end
 
   defp read_format_information(%BitMatrix{height: dimension} = matrix) do
@@ -140,25 +160,18 @@ defmodule QQR.Decoder do
 
   defp find_best_format(bits1, bits2) do
     {best_info, best_diff} =
-      Enum.reduce(@format_info_table, {nil, :infinity}, fn {code, format_info}, {best_fi, best_d} ->
-        cond do
-          code == bits1 or code == bits2 ->
-            {format_info, 0}
-
-          true ->
-            d1 = num_bits_differing(bits1, code)
-            {fi2, d2} = if d1 < best_d, do: {format_info, d1}, else: {best_fi, best_d}
-
-            if bits1 != bits2 do
-              d3 = num_bits_differing(bits2, code)
-              if d3 < d2, do: {format_info, d3}, else: {fi2, d2}
-            else
-              {fi2, d2}
-            end
-        end
+      Enum.reduce(@format_info_table, {nil, :infinity}, fn {code, format_info}, best ->
+        pick_closer_format(code, format_info, bits1, bits2, best)
       end)
 
     if best_diff <= 3, do: {:ok, best_info}, else: :error
+  end
+
+  defp pick_closer_format(code, format_info, bits1, bits2, {_best_fi, best_d} = best) do
+    d1 = num_bits_differing(bits1, code)
+    d2 = num_bits_differing(bits2, code)
+    d = min(d1, d2)
+    if d < best_d, do: {format_info, d}, else: best
   end
 
   defp build_function_pattern_mask(%Version{} = version) do
@@ -207,30 +220,35 @@ defmodule QQR.Decoder do
   defp zigzag_traverse(dimension, matrix, function_mask, data_mask) do
     col_pairs = build_column_pairs(dimension)
 
-    Enum.reduce(col_pairs, {[], 0, 0}, fn {col_index, reading_up}, {words, current_byte, bits_read} ->
+    Enum.reduce(col_pairs, {[], 0, 0}, fn {col_index, reading_up}, acc ->
       rows = if reading_up, do: (dimension - 1)..0//-1, else: 0..(dimension - 1)
 
-      Enum.reduce(rows, {words, current_byte, bits_read}, fn y, acc ->
-        Enum.reduce(0..1, acc, fn col_offset, {w, byte, br} ->
-          x = col_index - col_offset
-
-          if BitMatrix.get(function_mask, x, y) do
-            {w, byte, br}
-          else
-            bit = BitMatrix.get(matrix, x, y)
-            bit = if data_mask_applies?(data_mask, x, y), do: !bit, else: bit
-            byte = push_bit(bit, byte)
-            br = br + 1
-
-            if br == 8 do
-              {[byte | w], 0, 0}
-            else
-              {w, byte, br}
-            end
-          end
-        end)
+      Enum.reduce(rows, acc, fn y, row_acc ->
+        read_column_pair(col_index, y, matrix, function_mask, data_mask, row_acc)
       end)
     end)
+  end
+
+  defp read_column_pair(col_index, y, matrix, function_mask, data_mask, acc) do
+    Enum.reduce(0..1, acc, fn col_offset, {w, byte, br} ->
+      x = col_index - col_offset
+
+      if BitMatrix.get(function_mask, x, y) do
+        {w, byte, br}
+      else
+        read_data_bit(matrix, data_mask, x, y, w, byte, br)
+      end
+    end)
+  end
+
+  defp read_data_bit(matrix, data_mask, x, y, words, byte, bits_read) do
+    bit = BitMatrix.get(matrix, x, y)
+    bit = if data_mask_applies?(data_mask, x, y), do: !bit, else: bit
+    byte = push_bit(bit, byte)
+
+    if bits_read + 1 == 8,
+      do: {[byte | words], 0, 0},
+      else: {words, byte, bits_read + 1}
   end
 
   defp build_column_pairs(dimension) do

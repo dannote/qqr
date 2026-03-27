@@ -19,10 +19,9 @@ defmodule QQR.ReedSolomon do
       a = [1 | List.duplicate(0, two_s)]
 
       with {:ok, {sigma, omega}} <- run_euclidean(a, syndrome, two_s),
-           {:ok, locations} <- find_error_locations(sigma),
-           magnitudes = find_error_magnitudes(omega, locations),
-           {:ok, corrected} <- apply_corrections(bytes, locations, magnitudes) do
-        {:ok, corrected}
+           {:ok, locations} <- find_error_locations(sigma) do
+        magnitudes = find_error_magnitudes(omega, locations)
+        apply_corrections(bytes, locations, magnitudes)
       end
     end
   end
@@ -39,21 +38,20 @@ defmodule QQR.ReedSolomon do
   end
 
   defp euclidean_loop(r_last, r_curr, t_last, t_curr, r) do
-    if GFPoly.degree(r_curr) < div(r, 2) do
-      normalize(t_curr, r_curr)
-    else
-      if GFPoly.zero?(r_curr) do
+    cond do
+      GFPoly.degree(r_curr) < div(r, 2) ->
+        normalize(t_curr, r_curr)
+
+      GFPoly.zero?(r_curr) ->
         :error
-      else
+
+      true ->
         {q, remainder} = poly_divide(r_last, r_curr)
         t_new = GFPoly.add(GFPoly.multiply(q, t_curr), t_last)
 
-        if GFPoly.degree(remainder) >= GFPoly.degree(r_curr) do
-          :error
-        else
-          euclidean_loop(r_curr, remainder, t_curr, t_new, r)
-        end
-      end
+        if GFPoly.degree(remainder) >= GFPoly.degree(r_curr),
+          do: :error,
+          else: euclidean_loop(r_curr, remainder, t_curr, t_new, r)
     end
   end
 
@@ -94,18 +92,7 @@ defmodule QQR.ReedSolomon do
     if num_errors == 1 do
       {:ok, [GFPoly.coefficient(error_locator, 1)]}
     else
-      {locations, _} =
-        Enum.reduce_while(1..255, {[], 0}, fn i, {locs, count} ->
-          if count == num_errors do
-            {:halt, {locs, count}}
-          else
-            if GFPoly.evaluate_at(error_locator, i) == 0 do
-              {:cont, {[GF.inverse(i) | locs], count + 1}}
-            else
-              {:cont, {locs, count}}
-            end
-          end
-        end)
+      locations = collect_error_locations(error_locator, num_errors)
 
       if length(locations) == num_errors do
         {:ok, Enum.reverse(locations)}
@@ -115,20 +102,39 @@ defmodule QQR.ReedSolomon do
     end
   end
 
+  defp collect_error_locations(error_locator, num_errors) do
+    {locations, _} =
+      Enum.reduce_while(1..255, {[], 0}, fn i, {locs, count} ->
+        cond do
+          count == num_errors ->
+            {:halt, {locs, count}}
+
+          GFPoly.evaluate_at(error_locator, i) == 0 ->
+            {:cont, {[GF.inverse(i) | locs], count + 1}}
+
+          true ->
+            {:cont, {locs, count}}
+        end
+      end)
+
+    locations
+  end
+
   defp find_error_magnitudes(error_evaluator, error_locations) do
     error_locations
     |> Enum.with_index()
     |> Enum.map(fn {loc_i, i} ->
       xi_inverse = GF.inverse(loc_i)
-
-      denominator =
-        error_locations
-        |> Enum.with_index()
-        |> Enum.reduce(1, fn {loc_j, j}, acc ->
-          if i == j, do: acc, else: GF.multiply(acc, bxor(1, GF.multiply(loc_j, xi_inverse)))
-        end)
-
+      denominator = error_denominator(error_locations, xi_inverse, i)
       GF.multiply(GFPoly.evaluate_at(error_evaluator, xi_inverse), GF.inverse(denominator))
+    end)
+  end
+
+  defp error_denominator(error_locations, xi_inverse, skip_index) do
+    error_locations
+    |> Enum.with_index()
+    |> Enum.reduce(1, fn {loc_j, j}, acc ->
+      if j == skip_index, do: acc, else: GF.multiply(acc, bxor(1, GF.multiply(loc_j, xi_inverse)))
     end)
   end
 
