@@ -41,7 +41,7 @@ defmodule QQR.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "LICENSE"]
+      extras: ["README.md"]
     ]
   end
 

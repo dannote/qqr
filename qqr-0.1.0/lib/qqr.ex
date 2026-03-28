@@ -105,7 +105,8 @@ defmodule QQR do
   Decode a QR code from a pre-binarized module grid.
 
   Skips binarization and finder pattern detection — the matrix must be a
-  clean, rectified grid of modules (e.g. from a QR encoder library).
+  clean, rectified grid of modules (as produced by `QQR.Extractor` or an
+  external QR encoder library).
   """
   @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, matrix_result()} | :error
   def decode_matrix(matrix), do: Decoder.decode(matrix)

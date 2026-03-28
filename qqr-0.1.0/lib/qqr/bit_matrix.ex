@@ -1,5 +1,5 @@
 defmodule QQR.BitMatrix do
-  @moduledoc "2D binary matrix representing QR code modules."
+  @moduledoc false
 
   defstruct [:width, :height, :data]
 
