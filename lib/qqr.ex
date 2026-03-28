@@ -5,36 +5,25 @@ defmodule QQR do
   ## Encoding
 
       {:ok, matrix} = QQR.encode("Hello World")
+      svg_string = QQR.to_svg("https://example.com")
 
-  ## From RGBA pixels
+  ## Decoding
 
-      case QQR.decode(rgba_binary, width, height) do
-        {:ok, result} ->
-          result.text     #=> "https://example.com"
-          result.version  #=> 3
-          result.location #=> %{top_left_corner: {10.5, 10.5}, ...}
+      {:ok, result} = QQR.decode(rgba_binary, width, height)
+      result.text  #=> "https://example.com"
 
-        :error ->
-          :no_qr_found
-      end
+  ## SVG rendering
 
-  `rgba_binary` is a binary of RGBA pixels — 4 bytes per pixel, same layout
-  as `ImageData` in browsers or what most image libraries produce.
+  `to_svg/2` is the most common way to use the encoder — it encodes
+  and renders in one call. For Phoenix LiveView, use `to_svg_iodata/2`
+  to avoid an extra binary copy:
 
-  ## From a module grid
+      raw(QQR.to_svg_iodata("https://example.com"))
 
-  If you already have a binarized grid, skip the binarizer:
-
-      QQR.decode_matrix(bit_matrix)
-
-  ## Inversion
-
-  By default both normal and inverted (light-on-dark) images are tried.
-  Pass `inversion: :dont_invert` for ~2× speedup when you know the
-  background is white.
+  See `QQR.SVG` for all styling options (dot shapes, finder patterns, logos).
   """
 
-  alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator}
+  alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator, SVG}
 
   @type result :: %{
           text: String.t(),
@@ -64,18 +53,19 @@ defmodule QQR do
 
   @type point :: {number(), number()}
 
-  @type option :: {:inversion, :dont_invert | :only_invert | :attempt_both | :invert_first}
-
   @type encode_option ::
           {:ec_level, :low | :medium | :quartile | :high}
           | {:mode, :numeric | :alphanumeric | :byte | :auto}
           | {:version, 1..40}
           | {:mask, 0..7}
 
-  @doc """
-  Encode text as a QR code.
+  @type decode_option ::
+          {:inversion, :dont_invert | :only_invert | :attempt_both | :invert_first}
 
-  Returns `{:ok, matrix}` where matrix is a `QQR.BitMatrix` with `true` = dark module.
+  # -- Encoding --
+
+  @doc """
+  Encode text as a QR code matrix.
 
   ## Options
 
@@ -84,11 +74,6 @@ defmodule QQR do
     * `:version` — 1–40, auto-selected if omitted
     * `:mask` — 0–7, auto-selected if omitted
 
-  ## Examples
-
-      {:ok, matrix} = QQR.encode("Hello World")
-      {:ok, matrix} = QQR.encode("12345", ec_level: :high, mode: :numeric)
-
   """
   @spec encode(String.t(), [encode_option()]) :: {:ok, BitMatrix.t()} | {:error, String.t()}
   def encode(text, opts \\ []) do
@@ -96,10 +81,53 @@ defmodule QQR do
   end
 
   @doc """
+  Encode text and render as an SVG string.
+
+  Accepts all `encode/2` options plus SVG options (see `QQR.SVG`):
+
+    * `:dot_shape` — `:square`, `:rounded`, `:dots`, or `:diamond`
+    * `:finder_shape` — `:square`, `:rounded`, or `:dots`
+    * `:module_size`, `:quiet_zone`, `:color`, `:background`
+    * `:dot_size`, `:logo`
+
+  ## Examples
+
+      svg = QQR.to_svg("https://example.com")
+      svg = QQR.to_svg("Hello", dot_shape: :rounded, color: "#336699")
+
+  """
+  @spec to_svg(String.t(), keyword()) :: String.t()
+  def to_svg(text, opts \\ []) do
+    IO.iodata_to_binary(to_svg_iodata(text, opts))
+  end
+
+  @doc """
+  Encode text and render as SVG iodata.
+
+  Same as `to_svg/2` but returns iodata instead of a string — avoids
+  an extra binary copy. Useful in Phoenix templates:
+
+      <div class="qr"><%= raw(QQR.to_svg_iodata(@url)) %></div>
+
+  Raises on encode failure. Accepts same options as `to_svg/2`.
+  """
+  @spec to_svg_iodata(String.t(), keyword()) :: iodata()
+  def to_svg_iodata(text, opts \\ []) do
+    {encode_opts, svg_opts} = split_opts(opts)
+
+    case encode(text, encode_opts) do
+      {:ok, matrix} -> SVG.to_iodata(matrix, svg_opts)
+      {:error, reason} -> raise ArgumentError, reason
+    end
+  end
+
+  # -- Decoding --
+
+  @doc """
   Decode a QR code from raw RGBA pixel data.
 
-  Returns `{:ok, result}` with decoded text, bytes, chunks, version, and
-  location coordinates, or `:error` if no valid QR code is found.
+  `rgba` is a binary of 4 bytes per pixel (R, G, B, A), same format as
+  `ImageData` in browsers or what most image libraries produce.
 
   ## Options
 
@@ -107,7 +135,8 @@ defmodule QQR do
       or `:invert_first`
 
   """
-  @spec decode(binary(), pos_integer(), pos_integer(), [option()]) :: {:ok, result()} | :error
+  @spec decode(binary(), pos_integer(), pos_integer(), [decode_option()]) ::
+          {:ok, result()} | :error
   def decode(rgba, width, height, opts \\ [])
       when is_binary(rgba) and is_integer(width) and is_integer(height) do
     validate_decode_args!(rgba, width, height)
@@ -142,6 +171,14 @@ defmodule QQR do
   """
   @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, matrix_result()} | :error
   def decode_matrix(matrix), do: Decoder.decode(matrix)
+
+  # -- Private --
+
+  @encode_keys [:ec_level, :mode, :version, :mask]
+
+  defp split_opts(opts) do
+    Enum.split_with(opts, fn {k, _} -> k in @encode_keys end)
+  end
 
   defp scan(nil), do: :error
 

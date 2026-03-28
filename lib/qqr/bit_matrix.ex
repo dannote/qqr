@@ -59,24 +59,18 @@ defmodule QQR.BitMatrix do
   end
 
   @doc """
-  Render the matrix as an SVG string.
-
-  Delegates to `QQR.SVG.render/2`. See `QQR.SVG` for all styling options
-  including dot shapes, finder pattern styles, and logo embedding.
-
-  ## Options
-
-    * `:module_size` — pixel size per module (default: `10`)
-    * `:quiet_zone` — quiet zone in modules (default: `4`)
-    * `:color` — dark module color (default: `"#000"`)
-    * `:background` — background color (default: `"#fff"`)
-    * `:dot_shape` — `:square`, `:rounded`, `:dots`, or `:diamond`
-    * `:finder_shape` — `:square`, `:rounded`, or `:dots`
-    * `:logo` — logo options map
-
+  Render the matrix as an SVG string. See `QQR.SVG` for options.
   """
   @spec to_svg(t(), keyword()) :: String.t()
   def to_svg(%__MODULE__{} = matrix, opts \\ []) do
     QQR.SVG.render(matrix, opts)
+  end
+
+  @doc """
+  Render the matrix as SVG iodata. See `QQR.SVG` for options.
+  """
+  @spec to_svg_iodata(t(), keyword()) :: iodata()
+  def to_svg_iodata(%__MODULE__{} = matrix, opts \\ []) do
+    QQR.SVG.to_iodata(matrix, opts)
   end
 end

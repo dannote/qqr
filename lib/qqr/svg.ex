@@ -55,6 +55,20 @@ defmodule QQR.SVG do
   @doc """
   Render a `QQR.BitMatrix` as an SVG string.
 
+  See `to_iodata/2` for options.
+  """
+  @spec render(BitMatrix.t(), [option()]) :: String.t()
+  def render(%BitMatrix{} = matrix, opts \\ []) do
+    IO.iodata_to_binary(to_iodata(matrix, opts))
+  end
+
+  @doc """
+  Render a `QQR.BitMatrix` as SVG iodata.
+
+  Returns iodata (nested list of strings) — avoids an extra binary copy.
+  Pass to `IO.iodata_to_binary/1` when you need a string, or use directly
+  in Phoenix templates with `raw/1`.
+
   ## Options
 
     * `:module_size` — pixel size per module (default: `10`)
@@ -67,8 +81,8 @@ defmodule QQR.SVG do
     * `:logo` — logo options map (see module doc)
 
   """
-  @spec render(BitMatrix.t(), [option()]) :: String.t()
-  def render(%BitMatrix{width: w, height: h} = matrix, opts \\ []) do
+  @spec to_iodata(BitMatrix.t(), [option()]) :: iodata()
+  def to_iodata(%BitMatrix{width: w, height: h} = matrix, opts \\ []) do
     mod = Keyword.get(opts, :module_size, 10)
     quiet = Keyword.get(opts, :quiet_zone, 4)
     color = Keyword.get(opts, :color, "#000")
@@ -98,7 +112,7 @@ defmodule QQR.SVG do
         module_path((x + quiet) * mod, (y + quiet) * mod, mod, dot_shape, dot_size)
       end
 
-    IO.iodata_to_binary([
+    [
       "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ",
       n(total),
       " ",
@@ -119,7 +133,7 @@ defmodule QQR.SVG do
       "\"/>",
       logo_io,
       "</svg>"
-    ])
+    ]
   end
 
   defp default_finder_shape(:dots), do: :dots

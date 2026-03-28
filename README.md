@@ -19,38 +19,22 @@ end
 
 Options: `:ec_level` (`:low`, `:medium`, `:quartile`, `:high`), `:mode` (`:numeric`, `:alphanumeric`, `:byte`, `:auto`), `:version` (1–40), `:mask` (0–7). All default to auto.
 
-### SVG output
+### SVG
 
 ```elixir
-{:ok, matrix} = QQR.encode("https://example.com")
-svg = QQR.BitMatrix.to_svg(matrix)
-File.write!("qr.svg", svg)
+svg = QQR.to_svg("https://example.com")
+svg = QQR.to_svg("Hello", dot_shape: :rounded, color: "#336699")
 ```
 
-Options: `module_size: 10`, `quiet_zone: 4`, `dark: "#000"`, `light: "#fff"`.
+Styling: `:dot_shape` (`:square`, `:rounded`, `:dots`, `:diamond`), `:finder_shape` (`:square`, `:rounded`, `:dots`), `:dot_size`, `:module_size`, `:quiet_zone`, `:color`, `:background`, `:logo`. See `QQR.SVG` for details.
 
 ### Phoenix LiveView
 
-Render a QR code inline in a template:
-
-```elixir
-defmodule MyAppWeb.QRComponent do
-  use Phoenix.Component
-
-  def qr(assigns) do
-    {:ok, matrix} = QQR.encode(assigns.data, ec_level: :medium)
-    assigns = assign(assigns, :svg, QQR.BitMatrix.to_svg(matrix, module_size: 6))
-
-    ~H"""
-    <div class="qr-code">{@svg |> Phoenix.HTML.raw()}</div>
-    """
-  end
-end
-```
-
 ```heex
-<.qr data="https://myapp.com/invite/abc123" />
+<div class="qr"><%= raw(QQR.to_svg_iodata(@url, dot_shape: :rounded)) %></div>
 ```
+
+`to_svg_iodata/2` returns iodata — no extra binary copy, sent directly to the socket.
 
 ### PNG with stb_image
 
