@@ -10,16 +10,72 @@ def deps do
 end
 ```
 
-## Usage
-
-### Encoding
+## Encoding
 
 ```elixir
 {:ok, matrix} = QQR.encode("Hello World")
 {:ok, matrix} = QQR.encode("12345", ec_level: :high, mode: :numeric)
 ```
 
-`matrix` is a `QQR.BitMatrix` — access modules with `QQR.BitMatrix.get(matrix, x, y)`.
+Options: `:ec_level` (`:low`, `:medium`, `:quartile`, `:high`), `:mode` (`:numeric`, `:alphanumeric`, `:byte`, `:auto`), `:version` (1–40), `:mask` (0–7). All default to auto.
+
+### SVG output
+
+```elixir
+{:ok, matrix} = QQR.encode("https://example.com")
+svg = QQR.BitMatrix.to_svg(matrix)
+File.write!("qr.svg", svg)
+```
+
+Options: `module_size: 10`, `quiet_zone: 4`, `dark: "#000"`, `light: "#fff"`.
+
+### Phoenix LiveView
+
+Render a QR code inline in a template:
+
+```elixir
+defmodule MyAppWeb.QRComponent do
+  use Phoenix.Component
+
+  def qr(assigns) do
+    {:ok, matrix} = QQR.encode(assigns.data, ec_level: :medium)
+    assigns = assign(assigns, :svg, QQR.BitMatrix.to_svg(matrix, module_size: 6))
+
+    ~H"""
+    <div class="qr-code">{@svg |> Phoenix.HTML.raw()}</div>
+    """
+  end
+end
+```
+
+```heex
+<.qr data="https://myapp.com/invite/abc123" />
+```
+
+### PNG with stb_image
+
+```elixir
+{:ok, matrix} = QQR.encode("Hello World")
+dim = matrix.width
+scale = 10
+quiet = 4
+img_dim = (dim + quiet * 2) * scale
+
+rgb =
+  for y <- 0..(img_dim - 1), x <- 0..(img_dim - 1), into: <<>> do
+    qr_x = div(x, scale) - quiet
+    qr_y = div(y, scale) - quiet
+
+    if QQR.BitMatrix.get(matrix, qr_x, qr_y),
+      do: <<0, 0, 0>>,
+      else: <<255, 255, 255>>
+  end
+
+%StbImage{data: rgb, shape: {img_dim, img_dim, 3}, type: {:u, 8}}
+|> StbImage.write_file!("qr.png")
+```
+
+## Decoding
 
 ### From RGBA pixels
 
@@ -37,7 +93,25 @@ case QQR.decode(rgba_binary, width, height) do
 end
 ```
 
-`rgba_binary` is a binary of RGBA pixels — 4 bytes per pixel, same format as `ImageData` in browsers or what most image libraries produce.
+`rgba_binary` is a binary of RGBA pixels — 4 bytes per pixel, same format as `ImageData` in browsers.
+
+### From a file with stb_image
+
+```elixir
+{:ok, img} = StbImage.read_file("photo.png")
+{h, w, c} = img.shape
+
+rgba =
+  case c do
+    4 -> img.data
+    3 -> for <<r, g, b <- img.data>>, into: <<>>, do: <<r, g, b, 255>>
+  end
+
+case QQR.decode(rgba, w, h) do
+  {:ok, result} -> result.text
+  :error -> "no QR code found"
+end
+```
 
 ### From a module grid
 
@@ -51,19 +125,16 @@ QQR.decode_matrix(bit_matrix)
 
 By default both normal and inverted (light-on-dark) images are tried. Pass `inversion: :dont_invert` for ~2× speedup when you know the background is white.
 
-```elixir
-QQR.decode(rgba, w, h, inversion: :dont_invert)
-```
-
 ## Features
 
 - Versions 1–40, all error correction levels (L/M/Q/H)
-- Numeric, alphanumeric, and byte data modes
-- Kanji mode (raw bytes — Shift-JIS to text conversion not yet implemented)
+- Numeric, alphanumeric, and byte encoding/decoding modes
+- Kanji decoding (raw bytes — Shift-JIS to text conversion not yet implemented)
 - ECI segment parsing (designators consumed, encoding not applied)
-- Reed-Solomon error correction
+- Reed-Solomon error correction (encode and decode)
 - Adaptive binarization, perspective correction
 - Dark-background (inverted) and mirror/transposed QR codes
+- SVG rendering
 
 ## Benchmarks
 
@@ -80,19 +151,13 @@ Grid-only decode (`decode_matrix`) is **1.3–1.7× faster than Rust** for small
 ## How it works
 
 ```
-RGBA pixels → Binarizer → Locator → Extractor → Decoder → text
+Encode: text → data bits → RS error correction → matrix → mask → QR
+Decode: RGBA → binarize → locate → extract → unmask → RS correct → text
 ```
-
-| Stage | What it does |
-|-------|-------------|
-| Binarize | Adaptive threshold — RGBA to 1-bit per module |
-| Locate | Find three finder patterns (1:1:3:1:1 ratio scan), alignment pattern, grid size |
-| Extract | Perspective transform, sample rectified module grid |
-| Decode | Format/version info, unmask, Reed-Solomon error correction, data segment parsing |
 
 GF(256) exp/log tables are compiled into pattern-matched function heads. The `BitMatrix` uses a flat tuple with `:erlang.element/2` for constant-time access. No mutable state — zigzag traversal, Bresenham walks, and polynomial arithmetic are purely functional.
 
-Ported from [jsQR](https://github.com/cozmo/jsQR) with algorithm verification against [quirc](https://github.com/dlbeer/quirc).
+Encoder ported from [etiket](https://github.com/productdevbook/etiket). Decoder ported from [jsQR](https://github.com/cozmo/jsQR) with algorithm verification against [quirc](https://github.com/dlbeer/quirc).
 
 ## License
 
