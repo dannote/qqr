@@ -21,3 +21,8 @@ qqr-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Generated benchmark data
+/bench/*.png
+/bench/*.rgba
+/bench/*.meta

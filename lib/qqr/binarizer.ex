@@ -11,41 +11,26 @@ defmodule QQR.Binarizer do
   def binarize(rgba, width, height, opts \\ []) do
     invert = Keyword.get(opts, :invert, false)
 
-    gray = to_grayscale(rgba, width, height)
+    gray = to_grayscale(rgba)
     num_bx = ceil_div(width, @region_size)
     num_by = ceil_div(height, @region_size)
     black_points = compute_black_points(gray, width, height, num_bx, num_by)
-    apply_thresholds(gray, width, height, black_points, num_bx, num_by, invert)
+    thresholds = build_threshold_map(black_points, num_bx, num_by)
+    build_matrices(gray, width, height, thresholds, num_bx, invert)
   end
 
   defp ceil_div(a, b), do: div(a + b - 1, b)
 
-  # --- Grayscale conversion ---
-
-  defp to_grayscale(rgba, width, height) do
-    size = width * height
-
-    gray =
-      Enum.reduce(0..(size - 1)//1, <<>>, fn i, acc ->
-        offset = i * 4
-        <<_::binary-size(offset), r, g, b, _a, _::binary>> = rgba
-        lum = trunc(0.2126 * r + 0.7152 * g + 0.0722 * b)
-        <<acc::binary, lum>>
-      end)
-
-    ^size = byte_size(gray)
-    gray
+  defp to_grayscale(rgba) do
+    do_grayscale(rgba, [])
   end
 
-  defp gray_get(gray, x, y, width, height) do
-    if x >= 0 and x < width and y >= 0 and y < height do
-      :binary.at(gray, y * width + x)
-    else
-      0
-    end
+  defp do_grayscale(<<r, g, b, _a, rest::binary>>, acc) do
+    lum = div(2126 * r + 7152 * g + 722 * b, 10_000)
+    do_grayscale(rest, [lum | acc])
   end
 
-  # --- Block black-point estimation ---
+  defp do_grayscale(<<>>, acc), do: acc |> Enum.reverse() |> :erlang.list_to_binary()
 
   defp compute_black_points(gray, width, height, num_bx, num_by) do
     Enum.reduce(0..(num_by - 1)//1, :array.new(num_bx * num_by, default: 0), fn vy, bp ->
@@ -81,47 +66,61 @@ defmodule QQR.Binarizer do
   end
 
   defp block_stats(gray, width, height, hx, vy) do
-    Enum.reduce(0..(@region_size - 1)//1, {0, 255, 0}, fn dy, {sum, mn, mx} ->
-      Enum.reduce(0..(@region_size - 1)//1, {sum, mn, mx}, fn dx, {s, n, x} ->
-        lum = gray_get(gray, hx * @region_size + dx, vy * @region_size + dy, width, height)
+    for dy <- 0..(@region_size - 1)//1,
+        dx <- 0..(@region_size - 1)//1,
+        reduce: {0, 255, 0} do
+      {s, n, x} ->
+        lum = block_pixel(gray, width, height, hx * @region_size + dx, vy * @region_size + dy)
         {s + lum, min(n, lum), max(x, lum)}
-      end)
-    end)
+    end
   end
 
-  # --- Threshold application with 5×5 smoothing ---
+  defp block_pixel(gray, width, height, px, py) do
+    if px < width and py < height,
+      do: :binary.at(gray, py * width + px),
+      else: 0
+  end
 
-  defp apply_thresholds(gray, width, height, black_points, num_bx, num_by, invert) do
-    initial_normal = BitMatrix.new(width, height)
-    initial_inverted = if invert, do: BitMatrix.new(width, height)
+  defp build_threshold_map(black_points, num_bx, num_by) do
+    for vy <- 0..(num_by - 1)//1,
+        hx <- 0..(num_bx - 1)//1,
+        into: %{} do
+      {{hx, vy}, smoothed_threshold(black_points, num_bx, num_by, hx, vy)}
+    end
+  end
 
-    {normal, inverted} =
-      Enum.reduce(0..(num_by - 1)//1, {initial_normal, initial_inverted}, fn vy, acc ->
-        Enum.reduce(0..(num_bx - 1)//1, acc, fn hx, matrices ->
-          threshold = smoothed_threshold(black_points, num_bx, num_by, hx, vy)
-          apply_block_threshold(gray, width, height, hx, vy, threshold, matrices)
-        end)
-      end)
+  defp build_matrices(gray, width, height, thresholds, _num_bx, invert) do
+    max_hx = div(width - 1, @region_size)
+    max_vy = div(height - 1, @region_size)
+    normal_list = classify_pixels(gray, 0, width, height, thresholds, max_hx, max_vy, [])
+    normal = %BitMatrix{width: width, height: height, data: List.to_tuple(normal_list)}
+
+    inverted =
+      if invert do
+        inv_list = Enum.map(normal_list, fn b -> 1 - b end)
+        %BitMatrix{width: width, height: height, data: List.to_tuple(inv_list)}
+      end
 
     {normal, inverted}
   end
 
-  defp apply_block_threshold(gray, width, height, hx, vy, threshold, matrices) do
-    for dy <- 0..(@region_size - 1)//1, dx <- 0..(@region_size - 1)//1, reduce: matrices do
-      {n, i} ->
-        x = hx * @region_size + dx
-        y = vy * @region_size + dy
-        apply_pixel_threshold(gray, width, height, x, y, threshold, n, i)
+  defp classify_pixels(<<lum, rest::binary>>, idx, width, height, thresholds, max_hx, max_vy, acc) do
+    x = rem(idx, width)
+    y = div(idx, width)
+
+    if y < height do
+      hx = min(div(x, @region_size), max_hx)
+      vy = min(div(y, @region_size), max_vy)
+      threshold = Map.get(thresholds, {hx, vy}, 128)
+      bit = if lum <= threshold, do: 1, else: 0
+      classify_pixels(rest, idx + 1, width, height, thresholds, max_hx, max_vy, [bit | acc])
+    else
+      Enum.reverse(acc)
     end
   end
 
-  defp apply_pixel_threshold(gray, width, height, x, y, threshold, n, i) do
-    if x < width and y < height do
-      is_black = :binary.at(gray, y * width + x) <= threshold
-      {BitMatrix.set(n, x, y, is_black), if(i, do: BitMatrix.set(i, x, y, not is_black))}
-    else
-      {n, i}
-    end
+  defp classify_pixels(<<>>, _idx, _width, _height, _thresholds, _max_hx, _max_vy, acc) do
+    Enum.reverse(acc)
   end
 
   defp smoothed_threshold(black_points, num_bx, num_by, hx, vy) do
