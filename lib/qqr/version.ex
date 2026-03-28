@@ -1,5 +1,11 @@
 defmodule QQR.Version do
-  @moduledoc false
+  @moduledoc """
+  Static version table for QR code versions 1–40.
+
+  Each version defines alignment pattern centers, version info bits,
+  and four EC levels indexed as 0=M, 1=L, 2=H, 3=Q (matching jsQR
+  ordering), each with per-block codeword counts.
+  """
 
   defstruct [:number, :info_bits, :alignment_pattern_centers, :error_correction_levels]
 
@@ -296,6 +302,18 @@ defmodule QQR.Version do
         end)
     }
   end
+
+  def alignment_pattern_centers(number) when number >= 1 and number <= 40 do
+    {_info_bits, centers, _ec} = Map.fetch!(@versions, number)
+    centers
+  end
+
+  def info_bits(number) when number >= 7 and number <= 40 do
+    {info_bits, _centers, _ec} = Map.fetch!(@versions, number)
+    info_bits
+  end
+
+  def info_bits(_number), do: nil
 
   def dimension(%__MODULE__{number: n}), do: 17 + 4 * n
   def dimension(number) when is_integer(number), do: 17 + 4 * number

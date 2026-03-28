@@ -1,5 +1,11 @@
 defmodule QQR.Decoder do
-  @moduledoc false
+  @moduledoc """
+  Top-level QR code decode pipeline.
+
+  Reads version info → format information (EC level + data mask) →
+  extracts codewords via zigzag traversal → Reed-Solomon error correction
+  per block → data decoding. Falls back to a mirrored matrix on failure.
+  """
 
   import Bitwise
 

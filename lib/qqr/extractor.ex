@@ -67,7 +67,7 @@ defmodule QQR.Extractor do
       denominator = dx1 * dy2 - dx2 * dy1
 
       if abs(denominator) < 1.0e-10 do
-        {x2 - x1, y2 - y1, 0.0, x4 - x1, y4 - y1, 0.0, x1 / 1, y1 / 1, 1.0}
+        {x2 - x1, y2 - y1, 0.0, x4 - x1, y4 - y1, 0.0, x1 * 1.0, y1 * 1.0, 1.0}
       else
         a13 = (dx3 * dy2 - dx2 * dy3) / denominator
         a23 = (dx1 * dy3 - dx3 * dy1) / denominator
@@ -79,8 +79,8 @@ defmodule QQR.Extractor do
           x4 - x1 + a23 * x4,
           y4 - y1 + a23 * y4,
           a23,
-          x1 / 1,
-          y1 / 1,
+          x1 * 1.0,
+          y1 * 1.0,
           1.0
         }
       end

@@ -67,8 +67,8 @@ defmodule QQR.DecoderTest do
     end
 
     test "returns :error for random noise matrix" do
-      data = for _ <- 1..(21 * 21), do: Enum.random([0, 1])
       :rand.seed(:exsss, {0, 0, 0})
+      data = for _ <- 1..(21 * 21), do: Enum.random([0, 1])
       matrix = BitMatrix.from_list(21, 21, data)
       assert :error = Decoder.decode(matrix)
     end

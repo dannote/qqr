@@ -17,10 +17,11 @@ defmodule QQR.BitMatrix do
   @spec from_list(non_neg_integer(), non_neg_integer(), [0 | 1]) :: t()
   def from_list(width, height, list) do
     expected = width * height
+    actual = length(list)
 
-    if length(list) != expected do
+    if actual != expected do
       raise ArgumentError,
-            "list length #{length(list)} does not match #{width}x#{height} (expected #{expected})"
+            "list length #{actual} does not match #{width}x#{height} (expected #{expected})"
     end
 
     %__MODULE__{width: width, height: height, data: List.to_tuple(list)}

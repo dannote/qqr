@@ -18,32 +18,32 @@ defmodule QQR.BitStreamTest do
   describe "read_bits/2" do
     test "reads single bits" do
       stream = BitStream.new([0b10110000])
-      {b1, stream} = BitStream.read_bits(stream, 1)
-      {b2, stream} = BitStream.read_bits(stream, 1)
-      {b3, stream} = BitStream.read_bits(stream, 1)
-      {b4, _stream} = BitStream.read_bits(stream, 1)
+      {:ok, b1, stream} = BitStream.read_bits(stream, 1)
+      {:ok, b2, stream} = BitStream.read_bits(stream, 1)
+      {:ok, b3, stream} = BitStream.read_bits(stream, 1)
+      {:ok, b4, _stream} = BitStream.read_bits(stream, 1)
       assert [b1, b2, b3, b4] == [1, 0, 1, 1]
     end
 
     test "reads a full byte" do
       stream = BitStream.new([0xAB])
-      {val, stream} = BitStream.read_bits(stream, 8)
+      {:ok, val, stream} = BitStream.read_bits(stream, 8)
       assert val == 0xAB
       assert BitStream.available(stream) == 0
     end
 
     test "reads across byte boundaries" do
       stream = BitStream.new([0b11110000, 0b10101010])
-      {_, stream} = BitStream.read_bits(stream, 4)
-      {val, _stream} = BitStream.read_bits(stream, 8)
+      {:ok, _, stream} = BitStream.read_bits(stream, 4)
+      {:ok, val, _stream} = BitStream.read_bits(stream, 8)
       assert val == 0b00001010
     end
 
     test "reads multiple sizes sequentially" do
       stream = BitStream.new([0b01001000, 0b01100101])
-      {v4, stream} = BitStream.read_bits(stream, 4)
-      {v8, stream} = BitStream.read_bits(stream, 8)
-      {v4b, _stream} = BitStream.read_bits(stream, 4)
+      {:ok, v4, stream} = BitStream.read_bits(stream, 4)
+      {:ok, v8, stream} = BitStream.read_bits(stream, 8)
+      {:ok, v4b, _stream} = BitStream.read_bits(stream, 4)
       assert v4 == 0b0100
       assert v8 == 0b10000110
       assert v4b == 0b0101
@@ -51,26 +51,20 @@ defmodule QQR.BitStreamTest do
 
     test "reads 32 bits at once" do
       stream = BitStream.new([0xFF, 0x00, 0xAB, 0xCD])
-      {val, stream} = BitStream.read_bits(stream, 32)
+      {:ok, val, stream} = BitStream.read_bits(stream, 32)
       assert val == 0xFF00ABCD
       assert BitStream.available(stream) == 0
     end
 
-    test "raises when not enough bits" do
+    test "returns :error when not enough bits" do
       stream = BitStream.new([0xFF])
-
-      assert_raise RuntimeError, "Not enough bits available", fn ->
-        BitStream.read_bits(stream, 9)
-      end
+      assert :error = BitStream.read_bits(stream, 9)
     end
 
-    test "raises after exhaustion" do
+    test "returns :error after exhaustion" do
       stream = BitStream.new([0xFF])
-      {_, stream} = BitStream.read_bits(stream, 8)
-
-      assert_raise RuntimeError, "Not enough bits available", fn ->
-        BitStream.read_bits(stream, 1)
-      end
+      {:ok, _, stream} = BitStream.read_bits(stream, 8)
+      assert :error = BitStream.read_bits(stream, 1)
     end
   end
 
@@ -82,9 +76,9 @@ defmodule QQR.BitStreamTest do
     test "decreases after reads" do
       stream = BitStream.new([0xFF, 0xFF])
       assert BitStream.available(stream) == 16
-      {_, stream} = BitStream.read_bits(stream, 5)
+      {:ok, _, stream} = BitStream.read_bits(stream, 5)
       assert BitStream.available(stream) == 11
-      {_, stream} = BitStream.read_bits(stream, 11)
+      {:ok, _, stream} = BitStream.read_bits(stream, 11)
       assert BitStream.available(stream) == 0
     end
 

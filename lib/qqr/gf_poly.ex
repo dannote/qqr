@@ -1,5 +1,10 @@
 defmodule QQR.GFPoly do
-  @moduledoc false
+  @moduledoc """
+  Polynomials over GF(256), represented as coefficient lists from highest to lowest degree.
+
+  Lists are normalized on construction: leading zeros are stripped so
+  `degree/1` always equals `length - 1`. The zero polynomial is `[0]`.
+  """
 
   alias QQR.GaloisField, as: GF
   import Bitwise

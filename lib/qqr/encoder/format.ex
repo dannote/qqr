@@ -3,8 +3,6 @@ defmodule QQR.Encoder.Format do
 
   import Bitwise
 
-  alias QQR.Encoder.Tables
-
   @format_generator 0x537
   @format_mask 0x5412
 
@@ -28,7 +26,7 @@ defmodule QQR.Encoder.Format do
   def write_version_info(matrix, version, _size) when version < 7, do: matrix
 
   def write_version_info(matrix, version, size) do
-    info = Tables.version_info(version)
+    info = QQR.Version.info_bits(version)
 
     for i <- 0..17, reduce: matrix do
       acc ->

@@ -1,5 +1,10 @@
 defmodule QQR.GaloisField do
-  @moduledoc false
+  @moduledoc """
+  GF(256) arithmetic using primitive polynomial 0x011D.
+
+  Exp/log lookup tables are compiled into function heads at build time,
+  giving O(1) dispatch for multiply, inverse, and exponentiation.
+  """
 
   import Bitwise
 

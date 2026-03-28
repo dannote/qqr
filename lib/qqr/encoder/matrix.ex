@@ -2,7 +2,6 @@ defmodule QQR.Encoder.Matrix do
   @moduledoc false
 
   alias QQR.BitMatrix
-  alias QQR.Encoder.Tables
 
   def build(version, bits) do
     size = 17 + 4 * version
@@ -87,7 +86,7 @@ defmodule QQR.Encoder.Matrix do
   def place_alignment_patterns(matrix, version, _size) when version < 2, do: matrix
 
   def place_alignment_patterns(matrix, version, size) do
-    centers = Tables.alignment_positions(version)
+    centers = QQR.Version.alignment_pattern_centers(version)
 
     for row <- centers,
         col <- centers,
@@ -203,7 +202,7 @@ defmodule QQR.Encoder.Matrix do
   defp in_alignment?(_row, _col, version, _size) when version < 2, do: false
 
   defp in_alignment?(row, col, version, size) do
-    centers = Tables.alignment_positions(version)
+    centers = QQR.Version.alignment_pattern_centers(version)
 
     Enum.any?(centers, fn cr ->
       Enum.any?(centers, fn cc ->

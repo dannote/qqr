@@ -77,6 +77,7 @@ defmodule QQR do
   """
   @spec encode(String.t(), [encode_option()]) :: {:ok, BitMatrix.t()} | {:error, String.t()}
   def encode(text, opts \\ []) do
+    validate_encode_opts!(opts)
     QQR.Encoder.encode(text, opts)
   end
 
@@ -114,6 +115,7 @@ defmodule QQR do
   @spec to_svg_iodata(String.t(), keyword()) :: iodata()
   def to_svg_iodata(text, opts \\ []) do
     {encode_opts, svg_opts} = split_opts(opts)
+    validate_encode_opts!(encode_opts)
 
     case encode(text, encode_opts) do
       {:ok, matrix} -> SVG.to_iodata(matrix, svg_opts)
@@ -139,6 +141,7 @@ defmodule QQR do
           {:ok, result()} | :error
   def decode(rgba, width, height, opts \\ [])
       when is_binary(rgba) and is_integer(width) and is_integer(height) do
+    validate_decode_opts!(opts)
     validate_decode_args!(rgba, width, height)
     inversion = Keyword.get(opts, :inversion, :attempt_both)
 
@@ -175,6 +178,23 @@ defmodule QQR do
   # -- Private --
 
   @encode_keys [:ec_level, :mode, :version, :mask]
+
+  defp validate_encode_opts!(opts) do
+    Enum.each(opts, fn
+      {:ec_level, v} when v in [:low, :medium, :quartile, :high] -> :ok
+      {:mode, v} when v in [:numeric, :alphanumeric, :byte, :auto] -> :ok
+      {:version, v} when is_integer(v) and v >= 1 and v <= 40 -> :ok
+      {:mask, v} when is_integer(v) and v >= 0 and v <= 7 -> :ok
+      {k, v} -> raise ArgumentError, "invalid encode option: #{inspect({k, v})}"
+    end)
+  end
+
+  defp validate_decode_opts!(opts) do
+    Enum.each(opts, fn
+      {:inversion, v} when v in [:dont_invert, :only_invert, :attempt_both, :invert_first] -> :ok
+      {k, v} -> raise ArgumentError, "invalid decode option: #{inspect({k, v})}"
+    end)
+  end
 
   defp split_opts(opts) do
     Enum.split_with(opts, fn {k, _} -> k in @encode_keys end)

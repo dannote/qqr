@@ -112,12 +112,17 @@ defmodule QQR.SVG do
         module_path((x + quiet) * mod, (y + quiet) * mod, mod, dot_shape, dot_size)
       end
 
+    crisp_edges =
+      if dot_shape == :square, do: " shape-rendering=\"crispEdges\"", else: ""
+
     [
       "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ",
       n(total),
       " ",
       n(total),
-      "\" shape-rendering=\"crispEdges\">",
+      "\"",
+      crisp_edges,
+      ">",
       "<rect width=\"",
       n(total),
       "\" height=\"",

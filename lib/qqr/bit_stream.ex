@@ -10,9 +10,12 @@ defmodule QQR.BitStream do
 
   def read_bits(%__MODULE__{data: data, bit_offset: offset} = stream, n)
       when n >= 1 and n <= 32 do
-    if available(stream) < n, do: raise("Not enough bits available")
-    <<_skip::size(offset), value::size(n), _rest::bits>> = data
-    {value, %{stream | bit_offset: offset + n}}
+    if available(stream) < n do
+      :error
+    else
+      <<_skip::size(offset), value::size(n), _rest::bits>> = data
+      {:ok, value, %{stream | bit_offset: offset + n}}
+    end
   end
 
   def available(%__MODULE__{data: data, bit_offset: offset}), do: bit_size(data) - offset

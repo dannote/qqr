@@ -1,9 +1,16 @@
 defmodule QQR.DataDecoder do
-  @moduledoc false
+  @moduledoc """
+  Decodes the data payload from QR codewords.
+
+  Dispatches on the 4-bit mode indicator (numeric, alphanumeric, byte,
+  kanji, ECI) and parses each segment from the bitstream. Segments are
+  concatenated into a single text + byte result.
+  """
 
   alias QQR.BitStream
 
   @alphanumeric_chars ~c"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:"
+  @alphanumeric_count length(@alphanumeric_chars)
 
   @count_bit_sizes %{
     numeric: [10, 12, 14],
@@ -43,8 +50,9 @@ defmodule QQR.DataDecoder do
     if BitStream.available(stream) < 4 do
       {:ok, Enum.reverse(chunks)}
     else
-      {mode, stream} = BitStream.read_bits(stream, 4)
-      decode_mode(mode, stream, size_class, chunks)
+      with {:ok, mode, stream} <- BitStream.read_bits(stream, 4) do
+        decode_mode(mode, stream, size_class, chunks)
+      end
     end
   end
 
@@ -85,149 +93,153 @@ defmodule QQR.DataDecoder do
 
   defp decode_numeric(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.numeric, size_class)
-    {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {text, bytes, stream} = decode_numeric_digits(stream, count, "", [])
-    {:ok, %{mode: :numeric, text: text, bytes: bytes}, stream}
-  rescue
-    e -> {:error, Exception.message(e)}
+    with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
+         {:ok, text, bytes, stream} <- decode_numeric_digits(stream, count, "", []) do
+      {:ok, %{mode: :numeric, text: text, bytes: bytes}, stream}
+    end
   end
 
   defp decode_numeric_digits(stream, remaining, text, bytes) when remaining >= 3 do
-    {triple, stream} = BitStream.read_bits(stream, 10)
-    d1 = div(triple, 100)
-    d2 = div(rem(triple, 100), 10)
-    d3 = rem(triple, 10)
+    with {:ok, triple, stream} <- BitStream.read_bits(stream, 10) do
+      d1 = div(triple, 100)
+      d2 = div(rem(triple, 100), 10)
+      d3 = rem(triple, 10)
 
-    if d1 > 9 or d2 > 9 or d3 > 9 do
-      raise "Invalid numeric triplet: #{triple}"
+      if d1 > 9 or d2 > 9 or d3 > 9 do
+        {:error, "Invalid numeric triplet: #{triple}"}
+      else
+        chars = Integer.to_string(d1) <> Integer.to_string(d2) <> Integer.to_string(d3)
+        new_bytes = [?0 + d3, ?0 + d2, ?0 + d1]
+        decode_numeric_digits(stream, remaining - 3, text <> chars, new_bytes ++ bytes)
+      end
     end
-
-    chars = Integer.to_string(d1) <> Integer.to_string(d2) <> Integer.to_string(d3)
-    new_bytes = [?0 + d3, ?0 + d2, ?0 + d1]
-    decode_numeric_digits(stream, remaining - 3, text <> chars, new_bytes ++ bytes)
   end
 
   defp decode_numeric_digits(stream, 2, text, bytes) do
-    {pair, stream} = BitStream.read_bits(stream, 7)
-    d1 = div(pair, 10)
-    d2 = rem(pair, 10)
+    with {:ok, pair, stream} <- BitStream.read_bits(stream, 7) do
+      d1 = div(pair, 10)
+      d2 = rem(pair, 10)
 
-    if d1 > 9 or d2 > 9 do
-      raise "Invalid numeric pair: #{pair}"
+      if d1 > 9 or d2 > 9 do
+        {:error, "Invalid numeric pair: #{pair}"}
+      else
+        chars = Integer.to_string(d1) <> Integer.to_string(d2)
+        {:ok, text <> chars, [?0 + d2, ?0 + d1 | bytes], stream}
+      end
     end
-
-    chars = Integer.to_string(d1) <> Integer.to_string(d2)
-    {text <> chars, [?0 + d2, ?0 + d1 | bytes], stream}
   end
 
   defp decode_numeric_digits(stream, 1, text, bytes) do
-    {digit, stream} = BitStream.read_bits(stream, 4)
-
-    if digit > 9 do
-      raise "Invalid numeric digit: #{digit}"
+    with {:ok, digit, stream} <- BitStream.read_bits(stream, 4) do
+      if digit > 9 do
+        {:error, "Invalid numeric digit: #{digit}"}
+      else
+        {:ok, text <> Integer.to_string(digit), [?0 + digit | bytes], stream}
+      end
     end
-
-    {text <> Integer.to_string(digit), [?0 + digit | bytes], stream}
   end
 
-  defp decode_numeric_digits(stream, 0, text, bytes), do: {text, Enum.reverse(bytes), stream}
+  defp decode_numeric_digits(stream, 0, text, bytes),
+    do: {:ok, text, Enum.reverse(bytes), stream}
 
   defp decode_alphanumeric(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.alphanumeric, size_class)
-    {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {text, bytes, stream} = decode_alphanumeric_chars(stream, count, "", [])
-    {:ok, %{mode: :alphanumeric, text: text, bytes: bytes}, stream}
-  rescue
-    e -> {:error, Exception.message(e)}
+    with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
+         {:ok, text, bytes, stream} <- decode_alphanumeric_chars(stream, count, "", []) do
+      {:ok, %{mode: :alphanumeric, text: text, bytes: bytes}, stream}
+    end
   end
 
   defp decode_alphanumeric_chars(stream, remaining, text, bytes) when remaining >= 2 do
-    {pair, stream} = BitStream.read_bits(stream, 11)
-    c1 = div(pair, 45)
-    c2 = rem(pair, 45)
+    with {:ok, pair, stream} <- BitStream.read_bits(stream, 11) do
+      c1 = div(pair, 45)
+      c2 = rem(pair, 45)
 
-    if c1 >= length(@alphanumeric_chars) or c2 >= length(@alphanumeric_chars) do
-      raise "Invalid alphanumeric pair: #{pair}"
+      if c1 >= @alphanumeric_count or c2 >= @alphanumeric_count do
+        {:error, "Invalid alphanumeric pair: #{pair}"}
+      else
+        ch1 = Enum.at(@alphanumeric_chars, c1)
+        ch2 = Enum.at(@alphanumeric_chars, c2)
+        decode_alphanumeric_chars(stream, remaining - 2, text <> <<ch1, ch2>>, [ch2, ch1 | bytes])
+      end
     end
-
-    ch1 = Enum.at(@alphanumeric_chars, c1)
-    ch2 = Enum.at(@alphanumeric_chars, c2)
-    decode_alphanumeric_chars(stream, remaining - 2, text <> <<ch1, ch2>>, [ch2, ch1 | bytes])
   end
 
   defp decode_alphanumeric_chars(stream, 1, text, bytes) do
-    {val, stream} = BitStream.read_bits(stream, 6)
-
-    if val >= length(@alphanumeric_chars) do
-      raise "Invalid alphanumeric value: #{val}"
+    with {:ok, val, stream} <- BitStream.read_bits(stream, 6) do
+      if val >= @alphanumeric_count do
+        {:error, "Invalid alphanumeric value: #{val}"}
+      else
+        ch = Enum.at(@alphanumeric_chars, val)
+        {:ok, text <> <<ch>>, [ch | bytes], stream}
+      end
     end
-
-    ch = Enum.at(@alphanumeric_chars, val)
-    {text <> <<ch>>, [ch | bytes], stream}
   end
 
-  defp decode_alphanumeric_chars(stream, 0, text, bytes), do: {text, Enum.reverse(bytes), stream}
+  defp decode_alphanumeric_chars(stream, 0, text, bytes),
+    do: {:ok, text, Enum.reverse(bytes), stream}
 
   defp decode_byte(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.byte, size_class)
-    {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {bytes_reversed, stream} =
-      Enum.reduce(1..count//1, {[], stream}, fn _, {acc, s} ->
-        {byte, s} = BitStream.read_bits(s, 8)
-        {[byte | acc], s}
-      end)
+    with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
+         {:ok, bytes, stream} <- read_byte_sequence(stream, count, []) do
+      text = :erlang.list_to_binary(bytes)
+      {:ok, %{mode: :byte, text: text, bytes: bytes}, stream}
+    end
+  end
 
-    bytes = Enum.reverse(bytes_reversed)
-    text = :erlang.list_to_binary(bytes)
-    {:ok, %{mode: :byte, text: text, bytes: bytes}, stream}
-  rescue
-    e -> {:error, Exception.message(e)}
+  defp read_byte_sequence(stream, 0, acc), do: {:ok, Enum.reverse(acc), stream}
+
+  defp read_byte_sequence(stream, remaining, acc) do
+    with {:ok, byte, stream} <- BitStream.read_bits(stream, 8) do
+      read_byte_sequence(stream, remaining - 1, [byte | acc])
+    end
   end
 
   defp decode_kanji(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.kanji, size_class)
-    {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {bytes_reversed, stream} =
-      Enum.reduce(1..count//1, {[], stream}, fn _, {acc, s} ->
-        {val, s} = BitStream.read_bits(s, 13)
+    with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
+         {:ok, bytes, stream} <- read_kanji_sequence(stream, count, []) do
+      {:ok, %{mode: :kanji, text: "", bytes: bytes}, stream}
+    end
+  end
 
-        combined = if val + 0x8140 <= 0x9FFC, do: val + 0x8140, else: val + 0xC140
+  defp read_kanji_sequence(stream, 0, acc), do: {:ok, Enum.reverse(acc), stream}
 
-        hi = Bitwise.bsr(combined, 8) |> Bitwise.band(0xFF)
-        lo = Bitwise.band(combined, 0xFF)
-        {[lo, hi | acc], s}
-      end)
-
-    bytes = Enum.reverse(bytes_reversed)
-    {:ok, %{mode: :kanji, text: "", bytes: bytes}, stream}
-  rescue
-    e -> {:error, Exception.message(e)}
+  defp read_kanji_sequence(stream, remaining, acc) do
+    with {:ok, val, stream} <- BitStream.read_bits(stream, 13) do
+      combined = if val + 0x8140 <= 0x9FFC, do: val + 0x8140, else: val + 0xC140
+      hi = Bitwise.bsr(combined, 8) |> Bitwise.band(0xFF)
+      lo = Bitwise.band(combined, 0xFF)
+      read_kanji_sequence(stream, remaining - 1, [lo, hi | acc])
+    end
   end
 
   defp decode_eci(stream) do
-    {first, stream} = BitStream.read_bits(stream, 8)
-
-    cond do
-      Bitwise.band(first, 0x80) == 0 ->
-        {:ok, stream}
-
-      Bitwise.band(first, 0xC0) == 0x80 ->
-        {_second, stream} = BitStream.read_bits(stream, 8)
-        {:ok, stream}
-
-      Bitwise.band(first, 0xE0) == 0xC0 ->
-        {_second, stream} = BitStream.read_bits(stream, 8)
-        {_third, stream} = BitStream.read_bits(stream, 8)
-        {:ok, stream}
-
-      true ->
-        {:error, "Invalid ECI assignment"}
+    with {:ok, first, stream} <- BitStream.read_bits(stream, 8) do
+      decode_eci_value(first, stream)
     end
-  rescue
-    e -> {:error, Exception.message(e)}
   end
+
+  defp decode_eci_value(first, stream) when Bitwise.band(first, 0x80) == 0,
+    do: {:ok, stream}
+
+  defp decode_eci_value(first, stream) when Bitwise.band(first, 0xC0) == 0x80 do
+    with {:ok, _second, stream} <- BitStream.read_bits(stream, 8) do
+      {:ok, stream}
+    end
+  end
+
+  defp decode_eci_value(first, stream) when Bitwise.band(first, 0xE0) == 0xC0 do
+    with {:ok, _second, stream} <- BitStream.read_bits(stream, 8),
+         {:ok, _third, stream} <- BitStream.read_bits(stream, 8) do
+      {:ok, stream}
+    end
+  end
+
+  defp decode_eci_value(_first, _stream), do: {:error, "Invalid ECI assignment"}
 end

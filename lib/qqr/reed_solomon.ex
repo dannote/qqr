@@ -1,5 +1,11 @@
 defmodule QQR.ReedSolomon do
-  @moduledoc false
+  @moduledoc """
+  Reed-Solomon error correction decoder for QR codes.
+
+  Pipeline: compute syndromes → run the Euclidean algorithm to find
+  error-locator and error-evaluator polynomials → Chien search for
+  error locations → Forney formula for error magnitudes → apply corrections.
+  """
 
   alias QQR.GaloisField, as: GF
   alias QQR.GFPoly
