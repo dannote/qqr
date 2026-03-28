@@ -39,7 +39,7 @@ defmodule QQR.DataDecoder do
         text = IO.iodata_to_binary(text_iodata)
         bytes = bytes_reversed |> Enum.reverse() |> List.flatten()
 
-        {:ok, %{text: text, bytes: bytes, chunks: chunks, version: version}}
+        {:ok, %QQR.Result{text: text, bytes: bytes, chunks: chunks, version: version}}
 
       {:error, _} = err ->
         err
@@ -96,7 +96,7 @@ defmodule QQR.DataDecoder do
 
     with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
          {:ok, text, bytes, stream} <- decode_numeric_digits(stream, count, "", []) do
-      {:ok, %{mode: :numeric, text: text, bytes: bytes}, stream}
+      {:ok, %QQR.Chunk{mode: :numeric, text: text, bytes: bytes}, stream}
     end
   end
 
@@ -148,7 +148,7 @@ defmodule QQR.DataDecoder do
 
     with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
          {:ok, text, bytes, stream} <- decode_alphanumeric_chars(stream, count, "", []) do
-      {:ok, %{mode: :alphanumeric, text: text, bytes: bytes}, stream}
+      {:ok, %QQR.Chunk{mode: :alphanumeric, text: text, bytes: bytes}, stream}
     end
   end
 
@@ -187,7 +187,7 @@ defmodule QQR.DataDecoder do
     with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
          {:ok, bytes, stream} <- read_byte_sequence(stream, count, []) do
       text = :erlang.list_to_binary(bytes)
-      {:ok, %{mode: :byte, text: text, bytes: bytes}, stream}
+      {:ok, %QQR.Chunk{mode: :byte, text: text, bytes: bytes}, stream}
     end
   end
 
@@ -204,7 +204,7 @@ defmodule QQR.DataDecoder do
 
     with {:ok, count, stream} <- BitStream.read_bits(stream, count_bits),
          {:ok, bytes, stream} <- read_kanji_sequence(stream, count, []) do
-      {:ok, %{mode: :kanji, text: "", bytes: bytes}, stream}
+      {:ok, %QQR.Chunk{mode: :kanji, text: "", bytes: bytes}, stream}
     end
   end
 

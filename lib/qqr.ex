@@ -23,22 +23,7 @@ defmodule QQR do
   See `QQR.SVG` for all styling options (dot shapes, finder patterns, logos).
   """
 
-  alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator, SVG}
-
-  @type result :: %{
-          text: String.t(),
-          bytes: [non_neg_integer()],
-          chunks: [map()],
-          version: pos_integer(),
-          location: location()
-        }
-
-  @type matrix_result :: %{
-          text: String.t(),
-          bytes: [non_neg_integer()],
-          chunks: [map()],
-          version: pos_integer()
-        }
+  alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator, Result, SVG}
 
   @type location :: %{
           top_left_corner: point(),
@@ -138,7 +123,7 @@ defmodule QQR do
 
   """
   @spec decode(binary(), pos_integer(), pos_integer(), [decode_option()]) ::
-          {:ok, result()} | :error
+          {:ok, Result.t()} | :error
   def decode(rgba, width, height, opts \\ [])
       when is_binary(rgba) and is_integer(width) and is_integer(height) do
     validate_decode_opts!(opts)
@@ -172,7 +157,7 @@ defmodule QQR do
   Skips binarization and finder pattern detection — the matrix must be a
   clean, rectified grid of modules (e.g. from a QR encoder library).
   """
-  @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, matrix_result()} | :error
+  @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, Result.t()} | :error
   def decode_matrix(matrix), do: Decoder.decode(matrix)
 
   # -- Private --

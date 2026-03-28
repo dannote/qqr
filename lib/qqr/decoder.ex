@@ -49,7 +49,7 @@ defmodule QQR.Decoder do
     {0x2BED, {2, 7}}
   ]
 
-  @spec decode(BitMatrix.t() | nil) :: {:ok, map()} | :error
+  @spec decode(BitMatrix.t() | nil) :: {:ok, QQR.Result.t()} | :error
   def decode(nil), do: :error
 
   def decode(%BitMatrix{} = matrix) do
