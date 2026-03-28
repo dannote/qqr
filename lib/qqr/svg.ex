@@ -168,12 +168,9 @@ defmodule QQR.SVG do
   # -- Finder patterns --
 
   defp finder_module_set(dim) do
-    for {fy, fx} <- [{0, 0}, {0, dim - 7}, {dim - 7, 0}],
-        dy <- 0..6,
-        dx <- 0..6,
-        into: MapSet.new() do
-      {fx + dx, fy + dy}
-    end
+    tl = for y <- 0..8, x <- 0..8, into: MapSet.new(), do: {x, y}
+    tr = for y <- 0..8, x <- (dim - 8)..(dim - 1), into: tl, do: {x, y}
+    for y <- (dim - 8)..(dim - 1), x <- 0..8, into: tr, do: {x, y}
   end
 
   defp render_finders(dim, quiet, mod, shape, color) do
@@ -194,8 +191,8 @@ defmodule QQR.SVG do
     r = mod * 1.5
     ri = r * 0.5
 
-    outer_rounded_rect(x, y, s, r) <>
-      inner_rounded_rect(x + mod, y + mod, s - 2 * mod, ri)
+    rounded_rect_path(x, y, s, r) <>
+      rounded_rect_path(x + mod, y + mod, s - 2 * mod, ri)
   end
 
   defp finder_outer_path(x, y, mod, :dots) do
@@ -228,18 +225,6 @@ defmodule QQR.SVG do
   defp finder_inner_path(x, y, mod, :square) do
     s = mod * 3
     "M#{x + mod * 2},#{y + mod * 2}h#{s}v#{s}h-#{s}z"
-  end
-
-  defp outer_rounded_rect(x, y, s, r), do: rounded_rect_path(x, y, s, r)
-
-  defp inner_rounded_rect(x, y, s, r) do
-    d = s - 2 * r
-
-    "M#{x + r},#{y}" <>
-      "v#{d}a#{r},#{r},0,0,0,#{r},#{r}" <>
-      "h#{d}a#{r},#{r},0,0,0,#{r},-#{r}" <>
-      "v-#{d}a#{r},#{r},0,0,0,-#{r},-#{r}" <>
-      "h-#{d}a#{r},#{r},0,0,0,-#{r},#{r}z"
   end
 
   # -- Logo --
