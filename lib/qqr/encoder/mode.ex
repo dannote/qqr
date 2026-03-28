@@ -31,6 +31,8 @@ defmodule QQR.Encoder.Mode do
     end)
   end
 
+  @alphanumeric_base 45
+
   def encode_alphanumeric(text) do
     chars = Tables.alphanumeric_chars()
     index_map = chars |> Enum.with_index() |> Map.new(fn {c, i} -> {c, i} end)
@@ -40,7 +42,7 @@ defmodule QQR.Encoder.Mode do
     |> Enum.chunk_every(2)
     |> Enum.flat_map(fn
       [a, b] ->
-        push_bits(Map.fetch!(index_map, a) * 45 + Map.fetch!(index_map, b), 11)
+        push_bits(Map.fetch!(index_map, a) * @alphanumeric_base + Map.fetch!(index_map, b), 11)
 
       [a] ->
         push_bits(Map.fetch!(index_map, a), 6)

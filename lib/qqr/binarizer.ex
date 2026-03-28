@@ -5,6 +5,7 @@ defmodule QQR.Binarizer do
 
   @region_size 8
   @min_dynamic_range 24
+  @max_luminance 255
 
   @spec binarize(binary(), pos_integer(), pos_integer(), keyword()) ::
           {BitMatrix.t(), BitMatrix.t() | nil}
@@ -68,10 +69,10 @@ defmodule QQR.Binarizer do
   defp block_stats(gray, width, height, hx, vy) do
     for dy <- 0..(@region_size - 1)//1,
         dx <- 0..(@region_size - 1)//1,
-        reduce: {0, 255, 0} do
-      {s, n, x} ->
+        reduce: {0, @max_luminance, 0} do
+      {s, mn, mx} ->
         lum = block_pixel(gray, width, height, hx * @region_size + dx, vy * @region_size + dy)
-        {s + lum, min(n, lum), max(x, lum)}
+        {s + lum, min(mn, lum), max(mx, lum)}
     end
   end
 

@@ -112,7 +112,7 @@ defmodule QQR.Decoder do
   end
 
   defp read_version(%BitMatrix{height: dimension} = matrix) do
-    provisional = div(dimension - 17, 4)
+    provisional = div(dimension - QQR.Version.base_size(), QQR.Version.size_increment())
 
     cond do
       provisional < 1 or provisional > 40 ->
@@ -199,8 +199,8 @@ defmodule QQR.Decoder do
     |> BitMatrix.set_region(dimension - 8, 0, 8, 9, true)
     |> BitMatrix.set_region(0, dimension - 8, 9, 8, true)
     |> set_alignment_patterns(version, dimension)
-    |> BitMatrix.set_region(6, 9, 1, dimension - 17, true)
-    |> BitMatrix.set_region(9, 6, dimension - 17, 1, true)
+    |> BitMatrix.set_region(6, 9, 1, dimension - QQR.Version.base_size(), true)
+    |> BitMatrix.set_region(9, 6, dimension - QQR.Version.base_size(), 1, true)
     |> maybe_set_version_info(version, dimension)
   end
 

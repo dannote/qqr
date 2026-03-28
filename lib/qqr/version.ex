@@ -315,6 +315,12 @@ defmodule QQR.Version do
 
   def info_bits(_number), do: nil
 
-  def dimension(%__MODULE__{number: n}), do: 17 + 4 * n
-  def dimension(number) when is_integer(number), do: 17 + 4 * number
+  @base_size 17
+  @size_increment 4
+
+  def base_size, do: @base_size
+  def size_increment, do: @size_increment
+
+  def dimension(%__MODULE__{number: n}), do: @base_size + @size_increment * n
+  def dimension(number) when is_integer(number), do: @base_size + @size_increment * number
 end

@@ -6,7 +6,7 @@ defmodule QQR.Encoder do
   def encode(text, opts \\ []) do
     with {:ok, %{version: version, ec_level: ec_level, bits: bits}} <-
            Data.encode_data(text, opts) do
-      size = version * 4 + 17
+      size = QQR.Version.dimension(version)
       requested_mask = Keyword.get(opts, :mask)
 
       matrix_map = Matrix.build(version, bits)

@@ -11,6 +11,8 @@ defmodule QQR.ReedSolomon do
   alias QQR.GFPoly
   import Bitwise
 
+  @field_order 255
+
   def decode(bytes, num_ec_codewords) when is_list(bytes) do
     two_s = num_ec_codewords
     poly = GFPoly.new(bytes)
@@ -110,7 +112,7 @@ defmodule QQR.ReedSolomon do
 
   defp collect_error_locations(error_locator, num_errors) do
     {locations, _} =
-      Enum.reduce_while(1..255, {[], 0}, fn i, {locs, count} ->
+      Enum.reduce_while(1..@field_order, {[], 0}, fn i, {locs, count} ->
         cond do
           count == num_errors ->
             {:halt, {locs, count}}

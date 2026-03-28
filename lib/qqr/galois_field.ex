@@ -8,16 +8,16 @@ defmodule QQR.GaloisField do
 
   import Bitwise
 
-  @primitive 0x011D
-  @size 256
+  @primitive_polynomial 0x011D
+  @field_size 256
 
   {exp_table, log_table} =
-    Enum.reduce(0..255, {%{}, %{}, 1}, fn i, {exp, log, x} ->
+    Enum.reduce(0..(@field_size - 1), {%{}, %{}, 1}, fn i, {exp, log, x} ->
       exp = Map.put(exp, i, x)
-      log = if i < 255, do: Map.put(log, x, i), else: log
+      log = if i < @field_size - 1, do: Map.put(log, x, i), else: log
 
       next = x <<< 1
-      next = if next >= @size, do: bxor(next, @primitive), else: next
+      next = if next >= @field_size, do: bxor(next, @primitive_polynomial), else: next
 
       {exp, log, next}
     end)
@@ -37,8 +37,8 @@ defmodule QQR.GaloisField do
 
   def multiply(0, _), do: 0
   def multiply(_, 0), do: 0
-  def multiply(a, b), do: exp(rem(log(a) + log(b), 255))
+  def multiply(a, b), do: exp(rem(log(a) + log(b), @field_size - 1))
 
   def inverse(0), do: raise("Cannot invert 0")
-  def inverse(a), do: exp(255 - log(a))
+  def inverse(a), do: exp(@field_size - 1 - log(a))
 end

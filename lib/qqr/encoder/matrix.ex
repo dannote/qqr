@@ -3,8 +3,10 @@ defmodule QQR.Encoder.Matrix do
 
   alias QQR.BitMatrix
 
+  @dark_module_row_offset 9
+
   def build(version, bits) do
-    size = 17 + 4 * version
+    size = QQR.Version.dimension(version)
     matrix = %{}
 
     matrix
@@ -111,7 +113,7 @@ defmodule QQR.Encoder.Matrix do
   end
 
   defp place_dark_module(matrix, version) do
-    Map.put(matrix, {4 * version + 9, 8}, true)
+    Map.put(matrix, {4 * version + @dark_module_row_offset, 8}, true)
   end
 
   defp reserve_format_areas(matrix, size) do
@@ -212,7 +214,8 @@ defmodule QQR.Encoder.Matrix do
     end)
   end
 
-  defp dark_module?(row, col, version), do: row == 4 * version + 9 and col == 8
+  defp dark_module?(row, col, version),
+    do: row == 4 * version + @dark_module_row_offset and col == 8
 
   defp in_format_area?(row, 8, _size) when row <= 8, do: true
   defp in_format_area?(8, col, _size) when col <= 8, do: true

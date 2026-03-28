@@ -8,6 +8,10 @@ defmodule QQR.Encoder.Data do
   alias QQR.Encoder.Tables
 
   @mode_indicators %{numeric: 0b0001, alphanumeric: 0b0010, byte: 0b0100}
+  @mode_indicator_bits 4
+  @terminator_max_bits 4
+  @pad_byte_a 0xEC
+  @pad_byte_b 0x11
 
   def encode_data(text, opts \\ []) do
     ec_level = Keyword.get(opts, :ec_level, :medium)
@@ -40,7 +44,7 @@ defmodule QQR.Encoder.Data do
   end
 
   defp build_data_bits(text, mode, version, char_count) do
-    mode_bits = Mode.push_bits(Map.fetch!(@mode_indicators, mode), 4)
+    mode_bits = Mode.push_bits(Map.fetch!(@mode_indicators, mode), @mode_indicator_bits)
     count_bit_len = Tables.get_char_count_bits(version, mode)
     count_bits = Mode.push_bits(char_count, count_bit_len)
 
@@ -72,7 +76,7 @@ defmodule QQR.Encoder.Data do
             :byte -> Mode.encode_byte(text) |> length()
           end
 
-        total_bits = 4 + count_bit_len + payload_len
+        total_bits = @mode_indicator_bits + count_bit_len + payload_len
 
         max_char_count = (1 <<< count_bit_len) - 1
         char_count <= max_char_count and total_bits <= capacity_bits
@@ -83,7 +87,7 @@ defmodule QQR.Encoder.Data do
 
   defp add_terminator(bits, capacity_bits) do
     remaining = capacity_bits - length(bits)
-    terminator_len = min(remaining, 4)
+    terminator_len = min(remaining, @terminator_max_bits)
     bits ++ List.duplicate(0, terminator_len)
   end
 
@@ -99,7 +103,7 @@ defmodule QQR.Encoder.Data do
 
   defp pad_to_capacity(bits, capacity_bits) do
     pad_bytes_needed = div(capacity_bits - length(bits), 8)
-    pad_pattern = Stream.cycle([0xEC, 0x11]) |> Enum.take(pad_bytes_needed)
+    pad_pattern = Stream.cycle([@pad_byte_a, @pad_byte_b]) |> Enum.take(pad_bytes_needed)
     bits ++ Enum.flat_map(pad_pattern, &Mode.push_bits(&1, 8))
   end
 
