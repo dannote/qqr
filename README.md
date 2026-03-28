@@ -6,7 +6,7 @@ QR code encoder and decoder in pure Elixir. Zero dependencies — no NIFs, no po
 
 ```elixir
 def deps do
-  [{:qqr, "~> 0.1.0"}]
+  [{:qqr, "~> 0.2.0"}]
 end
 ```
 
