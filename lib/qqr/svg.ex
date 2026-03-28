@@ -80,66 +80,72 @@ defmodule QQR.SVG do
 
     total = (w + quiet * 2) * mod
 
-    {hidden, logo_svg} = logo_placement(logo_opts, w, mod, quiet)
-
+    {hidden, logo_io} = logo_placement(logo_opts, w, mod, quiet)
     finder_modules = finder_module_set(w)
-
-    finder_svg =
-      if finder_shape != :square do
-        render_finders(w, quiet, mod, finder_shape, color)
-      else
-        ""
-      end
-
     skip_finders? = finder_shape != :square
+
+    finder_io =
+      if skip_finders?,
+        do: render_finders(w, quiet, mod, finder_shape, color),
+        else: []
 
     paths =
       for y <- 0..(h - 1),
           x <- 0..(w - 1),
           BitMatrix.get(matrix, x, y),
           not MapSet.member?(hidden, {x, y}),
-          not (skip_finders? and MapSet.member?(finder_modules, {x, y})),
-          into: "" do
-        px = (x + quiet) * mod
-        py = (y + quiet) * mod
-        module_path(px, py, mod, dot_shape, dot_size)
+          not (skip_finders? and MapSet.member?(finder_modules, {x, y})) do
+        module_path((x + quiet) * mod, (y + quiet) * mod, mod, dot_shape, dot_size)
       end
 
-    [
-      ~s(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 #{total} #{total}" shape-rendering="crispEdges">),
-      ~s(<rect width="#{total}" height="#{total}" fill="#{bg}"/>),
-      finder_svg,
-      ~s(<path d="#{paths}" fill="#{color}"/>),
-      logo_svg,
+    IO.iodata_to_binary([
+      "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 ",
+      n(total),
+      " ",
+      n(total),
+      "\" shape-rendering=\"crispEdges\">",
+      "<rect width=\"",
+      n(total),
+      "\" height=\"",
+      n(total),
+      "\" fill=\"",
+      bg,
+      "\"/>",
+      finder_io,
+      "<path d=\"",
+      paths,
+      "\" fill=\"",
+      color,
+      "\"/>",
+      logo_io,
       "</svg>"
-    ]
-    |> IO.iodata_to_binary()
+    ])
   end
 
   defp default_finder_shape(:dots), do: :dots
   defp default_finder_shape(:rounded), do: :rounded
   defp default_finder_shape(_), do: :square
 
-  # -- Module paths --
+  defp n(v) when is_integer(v), do: Integer.to_string(v)
+  defp n(v) when is_float(v), do: Float.to_string(v)
+
+  # -- Module paths (return iodata) --
 
   defp module_path(x, y, size, :square, dot_size) do
     s = size * dot_size
     o = (size - s) / 2
-    "M#{x + o},#{y + o}h#{s}v#{s}h-#{s}z"
+    ["M", n(x + o), ",", n(y + o), "h", n(s), "v", n(s), "h-", n(s), "z"]
   end
 
   defp module_path(x, y, size, :rounded, dot_size) do
     s = size * dot_size
     o = (size - s) / 2
-    r = s * 0.25
-    rounded_rect_path(x + o, y + o, s, r)
+    rounded_rect_path(x + o, y + o, s, s * 0.25)
   end
 
   defp module_path(x, y, size, :dots, dot_size) do
     r = size * dot_size / 2
-    cx = x + size / 2
-    cy = y + size / 2
-    circle_path(cx, cy, r)
+    circle_path(x + size / 2, y + size / 2, r)
   end
 
   defp module_path(x, y, size, :diamond, dot_size) do
@@ -147,22 +153,105 @@ defmodule QQR.SVG do
     cx = x + size / 2
     cy = y + size / 2
     half = s / 2
-    "M#{cx},#{cy - half}l#{half},#{half}l-#{half},#{half}l-#{half},-#{half}z"
+
+    [
+      "M",
+      n(cx),
+      ",",
+      n(cy - half),
+      "l",
+      n(half),
+      ",",
+      n(half),
+      "l-",
+      n(half),
+      ",",
+      n(half),
+      "l-",
+      n(half),
+      ",-",
+      n(half),
+      "z"
+    ]
   end
 
   defp rounded_rect_path(x, y, s, r) do
     r = min(r, s / 2)
     d = s - 2 * r
+    rs = n(r)
 
-    "M#{x + r},#{y}" <>
-      "h#{d}a#{r},#{r},0,0,1,#{r},#{r}" <>
-      "v#{d}a#{r},#{r},0,0,1,-#{r},#{r}" <>
-      "h-#{d}a#{r},#{r},0,0,1,-#{r},-#{r}" <>
-      "v-#{d}a#{r},#{r},0,0,1,#{r},-#{r}z"
+    [
+      "M",
+      n(x + r),
+      ",",
+      n(y),
+      "h",
+      n(d),
+      "a",
+      rs,
+      ",",
+      rs,
+      ",0,0,1,",
+      rs,
+      ",",
+      rs,
+      "v",
+      n(d),
+      "a",
+      rs,
+      ",",
+      rs,
+      ",0,0,1,-",
+      rs,
+      ",",
+      rs,
+      "h-",
+      n(d),
+      "a",
+      rs,
+      ",",
+      rs,
+      ",0,0,1,-",
+      rs,
+      ",-",
+      rs,
+      "v-",
+      n(d),
+      "a",
+      rs,
+      ",",
+      rs,
+      ",0,0,1,",
+      rs,
+      ",-",
+      rs,
+      "z"
+    ]
   end
 
   defp circle_path(cx, cy, r) do
-    "M#{cx - r},#{cy}a#{r},#{r},0,1,0,#{2 * r},0a#{r},#{r},0,1,0,-#{2 * r},0z"
+    rs = n(r)
+    d = n(2 * r)
+
+    [
+      "M",
+      n(cx - r),
+      ",",
+      n(cy),
+      "a",
+      rs,
+      ",",
+      rs,
+      ",0,1,0,",
+      d,
+      ",0a",
+      rs,
+      ",",
+      rs,
+      ",0,1,0,-",
+      d,
+      ",0z"
+    ]
   end
 
   # -- Finder patterns --
@@ -177,59 +266,75 @@ defmodule QQR.SVG do
     positions = [{0, 0}, {dim - 7, 0}, {0, dim - 7}]
 
     paths =
-      for {col, row} <- positions, into: "" do
+      for {col, row} <- positions do
         x = (col + quiet) * mod
         y = (row + quiet) * mod
-        finder_outer_path(x, y, mod, shape) <> finder_inner_path(x, y, mod, shape)
+        [finder_outer_path(x, y, mod, shape), finder_inner_path(x, y, mod, shape)]
       end
 
-    ~s(<path d="#{paths}" fill="#{color}" fill-rule="evenodd"/>)
+    ["<path d=\"", paths, "\" fill=\"", color, "\" fill-rule=\"evenodd\"/>"]
   end
 
   defp finder_outer_path(x, y, mod, :rounded) do
     s = mod * 7
     r = mod * 1.5
-    ri = r * 0.5
-
-    rounded_rect_path(x, y, s, r) <>
-      rounded_rect_path(x + mod, y + mod, s - 2 * mod, ri)
+    [rounded_rect_path(x, y, s, r), rounded_rect_path(x + mod, y + mod, s - 2 * mod, r * 0.5)]
   end
 
   defp finder_outer_path(x, y, mod, :dots) do
     s = mod * 7
     r = s / 2
-    ri = r - mod
     cx = x + r
     cy = y + r
-    circle_path(cx, cy, r) <> circle_path(cx, cy, ri)
+    [circle_path(cx, cy, r), circle_path(cx, cy, r - mod)]
   end
 
   defp finder_outer_path(x, y, mod, :square) do
     s = mod * 7
     i = s - 2 * mod
 
-    "M#{x},#{y}h#{s}v#{s}h-#{s}z" <>
-      "M#{x + mod},#{y + mod}v#{i}h#{i}v-#{i}z"
+    [
+      "M",
+      n(x),
+      ",",
+      n(y),
+      "h",
+      n(s),
+      "v",
+      n(s),
+      "h-",
+      n(s),
+      "z",
+      "M",
+      n(x + mod),
+      ",",
+      n(y + mod),
+      "v",
+      n(i),
+      "h",
+      n(i),
+      "v-",
+      n(i),
+      "z"
+    ]
   end
 
   defp finder_inner_path(x, y, mod, :dots) do
-    s = mod * 3
-    circle_path(x + mod * 3.5, y + mod * 3.5, s / 2)
+    circle_path(x + mod * 3.5, y + mod * 3.5, mod * 1.5)
   end
 
   defp finder_inner_path(x, y, mod, :rounded) do
-    s = mod * 3
-    rounded_rect_path(x + mod * 2, y + mod * 2, s, mod * 0.75)
+    rounded_rect_path(x + mod * 2, y + mod * 2, mod * 3, mod * 0.75)
   end
 
   defp finder_inner_path(x, y, mod, :square) do
     s = mod * 3
-    "M#{x + mod * 2},#{y + mod * 2}h#{s}v#{s}h-#{s}z"
+    ["M", n(x + mod * 2), ",", n(y + mod * 2), "h", n(s), "v", n(s), "h-", n(s), "z"]
   end
 
   # -- Logo --
 
-  defp logo_placement(nil, _dim, _mod, _quiet), do: {MapSet.new(), ""}
+  defp logo_placement(nil, _dim, _mod, _quiet), do: {MapSet.new(), []}
 
   defp logo_placement(logo, dim, mod, quiet) do
     size = Map.get(logo, :size, 0.3)
@@ -242,32 +347,64 @@ defmodule QQR.SVG do
 
     hidden = hidden_modules(dim, size, margin, mod)
 
-    bg_svg =
+    bg_io =
       case Map.get(logo, :background) do
         nil ->
-          ""
+          []
 
         bg_color ->
-          ~s(<rect x="#{logo_x - margin}" y="#{logo_y - margin}" width="#{logo_px + 2 * margin}" height="#{logo_px + 2 * margin}" fill="#{bg_color}" rx="4"/>)
+          [
+            "<rect x=\"",
+            n(logo_x - margin),
+            "\" y=\"",
+            n(logo_y - margin),
+            "\" width=\"",
+            n(logo_px + 2 * margin),
+            "\" height=\"",
+            n(logo_px + 2 * margin),
+            "\" fill=\"",
+            bg_color,
+            "\" rx=\"4\"/>"
+          ]
       end
 
-    content_svg =
+    content_io =
       cond do
         Map.has_key?(logo, :svg) ->
-          svg_content = Map.fetch!(logo, :svg)
-
-          ~s(<svg x="#{logo_x}" y="#{logo_y}" width="#{logo_px}" height="#{logo_px}" viewBox="0 0 1 1">#{svg_content}</svg>)
+          [
+            "<svg x=\"",
+            n(logo_x),
+            "\" y=\"",
+            n(logo_y),
+            "\" width=\"",
+            n(logo_px),
+            "\" height=\"",
+            n(logo_px),
+            "\" viewBox=\"0 0 1 1\">",
+            Map.fetch!(logo, :svg),
+            "</svg>"
+          ]
 
         Map.has_key?(logo, :image_url) ->
-          url = Map.fetch!(logo, :image_url)
-
-          ~s(<image href="#{url}" x="#{logo_x}" y="#{logo_y}" width="#{logo_px}" height="#{logo_px}"/>)
+          [
+            "<image href=\"",
+            Map.fetch!(logo, :image_url),
+            "\" x=\"",
+            n(logo_x),
+            "\" y=\"",
+            n(logo_y),
+            "\" width=\"",
+            n(logo_px),
+            "\" height=\"",
+            n(logo_px),
+            "\"/>"
+          ]
 
         true ->
-          ""
+          []
       end
 
-    {hidden, bg_svg <> content_svg}
+    {hidden, [bg_io, content_io]}
   end
 
   defp hidden_modules(dim, logo_size, margin, mod) do
