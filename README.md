@@ -134,7 +134,7 @@ By default both normal and inverted (light-on-dark) images are tried. Pass `inve
 - Reed-Solomon error correction (encode and decode)
 - Adaptive binarization, perspective correction
 - Dark-background (inverted) and mirror/transposed QR codes
-- SVG rendering
+- SVG rendering (basic — use [etiket](https://github.com/productdevbook/etiket) for styled dots, gradients, logos)
 
 ## Benchmarks
 
