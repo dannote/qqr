@@ -1,6 +1,6 @@
 # QQR
 
-QR code decoder in pure Elixir. Zero dependencies — no NIFs, no ports, no C.
+QR code encoder and decoder in pure Elixir. Zero dependencies — no NIFs, no ports, no C.
 
 ## Installation
 
@@ -11,6 +11,15 @@ end
 ```
 
 ## Usage
+
+### Encoding
+
+```elixir
+{:ok, matrix} = QQR.encode("Hello World")
+{:ok, matrix} = QQR.encode("12345", ec_level: :high, mode: :numeric)
+```
+
+`matrix` is a `QQR.BitMatrix` — access modules with `QQR.BitMatrix.get(matrix, x, y)`.
 
 ### From RGBA pixels
 

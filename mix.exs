@@ -12,7 +12,7 @@ defmodule QQR.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       name: "QQR",
-      description: "Pure Elixir QR code decoder",
+      description: "Pure Elixir QR code encoder and decoder",
       source_url: @source_url,
       docs: docs(),
       package: package(),

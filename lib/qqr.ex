@@ -1,6 +1,10 @@
 defmodule QQR do
   @moduledoc """
-  Pure Elixir QR code decoder.
+  Pure Elixir QR code encoder and decoder.
+
+  ## Encoding
+
+      {:ok, matrix} = QQR.encode("Hello World")
 
   ## From RGBA pixels
 
@@ -30,7 +34,7 @@ defmodule QQR do
   background is white.
   """
 
-  alias QQR.{Binarizer, Decoder, Extractor, Locator}
+  alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator}
 
   @type result :: %{
           text: String.t(),
@@ -61,6 +65,35 @@ defmodule QQR do
   @type point :: {number(), number()}
 
   @type option :: {:inversion, :dont_invert | :only_invert | :attempt_both | :invert_first}
+
+  @type encode_option ::
+          {:ec_level, :low | :medium | :quartile | :high}
+          | {:mode, :numeric | :alphanumeric | :byte | :auto}
+          | {:version, 1..40}
+          | {:mask, 0..7}
+
+  @doc """
+  Encode text as a QR code.
+
+  Returns `{:ok, matrix}` where matrix is a `QQR.BitMatrix` with `true` = dark module.
+
+  ## Options
+
+    * `:ec_level` — `:low`, `:medium` (default), `:quartile`, or `:high`
+    * `:mode` — `:numeric`, `:alphanumeric`, `:byte`, or `:auto` (default)
+    * `:version` — 1–40, auto-selected if omitted
+    * `:mask` — 0–7, auto-selected if omitted
+
+  ## Examples
+
+      {:ok, matrix} = QQR.encode("Hello World")
+      {:ok, matrix} = QQR.encode("12345", ec_level: :high, mode: :numeric)
+
+  """
+  @spec encode(String.t(), [encode_option()]) :: {:ok, BitMatrix.t()} | {:error, String.t()}
+  def encode(text, opts \\ []) do
+    QQR.Encoder.encode(text, opts)
+  end
 
   @doc """
   Decode a QR code from raw RGBA pixel data.
