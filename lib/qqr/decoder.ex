@@ -108,20 +108,25 @@ defmodule QQR.Decoder do
   defp read_version(%BitMatrix{height: dimension} = matrix) do
     provisional = div(dimension - 17, 4)
 
-    if provisional <= 6 do
-      {:ok, Version.get(provisional)}
-    else
-      top_right_bits =
-        for y <- 5..0//-1, x <- (dimension - 9)..(dimension - 11)//-1, reduce: 0 do
-          acc -> push_bit(BitMatrix.get(matrix, x, y), acc)
-        end
+    cond do
+      provisional < 1 or provisional > 40 ->
+        :error
 
-      bottom_left_bits =
-        for x <- 5..0//-1, y <- (dimension - 9)..(dimension - 11)//-1, reduce: 0 do
-          acc -> push_bit(BitMatrix.get(matrix, x, y), acc)
-        end
+      provisional <= 6 ->
+        {:ok, Version.get(provisional)}
 
-      find_best_version(top_right_bits, bottom_left_bits)
+      true ->
+        top_right_bits =
+          for y <- 5..0//-1, x <- (dimension - 9)..(dimension - 11)//-1, reduce: 0 do
+            acc -> push_bit(BitMatrix.get(matrix, x, y), acc)
+          end
+
+        bottom_left_bits =
+          for x <- 5..0//-1, y <- (dimension - 9)..(dimension - 11)//-1, reduce: 0 do
+            acc -> push_bit(BitMatrix.get(matrix, x, y), acc)
+          end
+
+        find_best_version(top_right_bits, bottom_left_bits)
     end
   end
 
