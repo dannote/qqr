@@ -61,35 +61,22 @@ defmodule QQR.BitMatrix do
   @doc """
   Render the matrix as an SVG string.
 
+  Delegates to `QQR.SVG.render/2`. See `QQR.SVG` for all styling options
+  including dot shapes, finder pattern styles, and logo embedding.
+
   ## Options
 
-    * `:module_size` — pixel size per module (default: 10)
-    * `:quiet_zone` — number of quiet zone modules (default: 4)
-    * `:dark` — dark module color (default: `"#000"`)
-    * `:light` — light module / background color (default: `"#fff"`)
+    * `:module_size` — pixel size per module (default: `10`)
+    * `:quiet_zone` — quiet zone in modules (default: `4`)
+    * `:color` — dark module color (default: `"#000"`)
+    * `:background` — background color (default: `"#fff"`)
+    * `:dot_shape` — `:square`, `:rounded`, `:dots`, or `:diamond`
+    * `:finder_shape` — `:square`, `:rounded`, or `:dots`
+    * `:logo` — logo options map
 
   """
   @spec to_svg(t(), keyword()) :: String.t()
-  def to_svg(%__MODULE__{width: w, height: h} = matrix, opts \\ []) do
-    mod = Keyword.get(opts, :module_size, 10)
-    quiet = Keyword.get(opts, :quiet_zone, 4)
-    dark = Keyword.get(opts, :dark, "#000")
-    light = Keyword.get(opts, :light, "#fff")
-
-    total = (w + quiet * 2) * mod
-
-    rects =
-      for y <- 0..(h - 1), x <- 0..(w - 1), get(matrix, x, y), into: "" do
-        px = (x + quiet) * mod
-        py = (y + quiet) * mod
-        ~s(<rect x="#{px}" y="#{py}" width="#{mod}" height="#{mod}"/>)
-      end
-
-    """
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 #{total} #{total}" shape-rendering="crispEdges">\
-    <rect width="#{total}" height="#{total}" fill="#{light}"/>\
-    <g fill="#{dark}">#{rects}</g>\
-    </svg>\
-    """
+  def to_svg(%__MODULE__{} = matrix, opts \\ []) do
+    QQR.SVG.render(matrix, opts)
   end
 end
