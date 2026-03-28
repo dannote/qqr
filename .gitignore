@@ -16,8 +16,9 @@ erl_crash.dump
 # Also ignore archive artifacts (built via "mix archive.build").
 *.ez
 
-# Ignore package tarball (built via "mix hex.build").
+# Ignore package tarball and unpacked directory (built via "mix hex.build").
 qqr-*.tar
+/qqr-*/
 
 # Temporary files, for example, from tests.
 /tmp/
