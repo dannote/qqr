@@ -94,8 +94,10 @@ defmodule QQR.Locator do
       active_alignment: []
     }
 
+    step = if height > 100, do: 2, else: 1
+
     result =
-      Enum.reduce(0..height, initial, fn y, acc ->
+      Enum.reduce(0..height//step, initial, fn y, acc ->
         {finder_matches, alignment_matches} = scan_row(matrix, y)
 
         {active_finder, finished_finder} =

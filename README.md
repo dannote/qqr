@@ -78,13 +78,13 @@ Compared against [qrex](https://hex.pm/packages/qrex) (Rust NIF, takes PNG). Run
 
 | Input | QQR.decode_matrix | QRex (Rust NIF) | QQR.decode (RGBA) |
 |-------|------------------:|----------------:|------------------:|
-| Version 1, "Hello" | **30 µs** | 51 µs | 1.9 ms |
-| Version 2, URL | **55 µs** | 70 µs | 2.7 ms |
-| Version 6, 100 chars | 250 µs | **147 µs** | 6.7 ms |
+| Version 1, "Hello" | **30 µs** | 51 µs | 1.5 ms |
+| Version 2, URL | **55 µs** | 70 µs | 2.1 ms |
+| Version 6, 100 chars | 251 µs | **146 µs** | 5.5 ms |
 
 `decode_matrix` takes a clean module grid — no image processing. When you already have a binarized grid (e.g. from a camera pipeline or another library), pure Elixir is **1.3–1.7× faster than Rust**.
 
-The full RGBA pipeline includes binarization, finder pattern detection, and perspective correction — currently ~45× slower. The locator is the main bottleneck.
+The full RGBA pipeline includes binarization, finder pattern detection, and perspective correction — currently ~37× slower. The binarizer and locator are the main bottlenecks.
 
 ## How it works
 

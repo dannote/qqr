@@ -15,8 +15,8 @@ defmodule QQR.Binarizer do
     num_bx = ceil_div(width, @region_size)
     num_by = ceil_div(height, @region_size)
     black_points = compute_black_points(gray, width, height, num_bx, num_by)
-    thresholds = build_threshold_map(black_points, num_bx, num_by)
-    build_matrices(gray, width, height, thresholds, num_bx, invert)
+    thresholds = build_threshold_tuple(black_points, num_bx, num_by)
+    build_matrices(gray, width, height, thresholds, num_bx, num_by, invert)
   end
 
   defp ceil_div(a, b), do: div(a + b - 1, b)
@@ -81,18 +81,20 @@ defmodule QQR.Binarizer do
       else: 0
   end
 
-  defp build_threshold_map(black_points, num_bx, num_by) do
-    for vy <- 0..(num_by - 1)//1,
-        hx <- 0..(num_bx - 1)//1,
-        into: %{} do
-      {{hx, vy}, smoothed_threshold(black_points, num_bx, num_by, hx, vy)}
-    end
+  defp build_threshold_tuple(black_points, num_bx, num_by) do
+    list =
+      for vy <- 0..(num_by - 1)//1,
+          hx <- 0..(num_bx - 1)//1 do
+        smoothed_threshold(black_points, num_bx, num_by, hx, vy)
+      end
+
+    List.to_tuple(list)
   end
 
-  defp build_matrices(gray, width, height, thresholds, _num_bx, invert) do
-    max_hx = div(width - 1, @region_size)
-    max_vy = div(height - 1, @region_size)
-    normal_list = classify_pixels(gray, 0, width, height, thresholds, max_hx, max_vy, [])
+  defp build_matrices(gray, width, height, thresholds, num_bx, num_by, invert) do
+    max_hx = num_bx - 1
+    max_vy = num_by - 1
+    normal_list = classify_pixels(gray, 0, width, thresholds, max_hx, max_vy, num_bx, [])
     normal = %BitMatrix{width: width, height: height, data: List.to_tuple(normal_list)}
 
     inverted =
@@ -104,22 +106,16 @@ defmodule QQR.Binarizer do
     {normal, inverted}
   end
 
-  defp classify_pixels(<<lum, rest::binary>>, idx, width, height, thresholds, max_hx, max_vy, acc) do
-    x = rem(idx, width)
-    y = div(idx, width)
+  defp classify_pixels(<<lum, rest::binary>>, idx, width, thresholds, max_hx, max_vy, num_bx, acc) do
+    hx = min(div(rem(idx, width), @region_size), max_hx)
+    vy = min(div(div(idx, width), @region_size), max_vy)
+    threshold = :erlang.element(vy * num_bx + hx + 1, thresholds)
+    bit = if lum <= threshold, do: 1, else: 0
 
-    if y < height do
-      hx = min(div(x, @region_size), max_hx)
-      vy = min(div(y, @region_size), max_vy)
-      threshold = Map.get(thresholds, {hx, vy}, 128)
-      bit = if lum <= threshold, do: 1, else: 0
-      classify_pixels(rest, idx + 1, width, height, thresholds, max_hx, max_vy, [bit | acc])
-    else
-      Enum.reverse(acc)
-    end
+    classify_pixels(rest, idx + 1, width, thresholds, max_hx, max_vy, num_bx, [bit | acc])
   end
 
-  defp classify_pixels(<<>>, _idx, _width, _height, _thresholds, _max_hx, _max_vy, acc) do
+  defp classify_pixels(<<>>, _idx, _width, _thresholds, _max_hx, _max_vy, _num_bx, acc) do
     Enum.reverse(acc)
   end
 
