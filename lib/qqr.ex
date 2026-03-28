@@ -40,6 +40,13 @@ defmodule QQR do
           location: location()
         }
 
+  @type matrix_result :: %{
+          text: String.t(),
+          bytes: [non_neg_integer()],
+          chunks: [map()],
+          version: pos_integer()
+        }
+
   @type location :: %{
           top_left_corner: point(),
           top_right_corner: point(),
@@ -68,7 +75,9 @@ defmodule QQR do
 
   """
   @spec decode(binary(), pos_integer(), pos_integer(), [option()]) :: {:ok, result()} | :error
-  def decode(rgba, width, height, opts \\ []) do
+  def decode(rgba, width, height, opts \\ [])
+      when is_binary(rgba) and is_integer(width) and is_integer(height) do
+    validate_decode_args!(rgba, width, height)
     inversion = Keyword.get(opts, :inversion, :attempt_both)
 
     should_invert = inversion in [:attempt_both, :invert_first]
@@ -99,7 +108,7 @@ defmodule QQR do
   clean, rectified grid of modules (as produced by `QQR.Extractor` or an
   external QR encoder library).
   """
-  @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, map()} | :error
+  @spec decode_matrix(QQR.BitMatrix.t()) :: {:ok, matrix_result()} | :error
   def decode_matrix(matrix), do: Decoder.decode(matrix)
 
   defp scan(nil), do: :error
@@ -131,6 +140,20 @@ defmodule QQR do
 
       :error ->
         nil
+    end
+  end
+
+  defp validate_decode_args!(_rgba, width, height) when width <= 0 or height <= 0 do
+    raise ArgumentError, "width and height must be positive, got: #{width}x#{height}"
+  end
+
+  defp validate_decode_args!(rgba, width, height) do
+    expected = width * height * 4
+    actual = byte_size(rgba)
+
+    if actual != expected do
+      raise ArgumentError,
+            "expected #{expected} bytes for #{width}x#{height} RGBA image, got: #{actual}"
     end
   end
 

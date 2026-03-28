@@ -148,7 +148,7 @@ defmodule QQR.Locator do
         end
       end)
 
-    {result.finder_matches, result.alignment_matches}
+    {Enum.reverse(result.finder_matches), Enum.reverse(result.alignment_matches)}
   end
 
   defp check_finder_pattern(acc, scans, x, y, v) do
@@ -170,7 +170,7 @@ defmodule QQR.Locator do
       end_x = x - s3 - s4
       start_x = end_x - s2
       line = %{start_x: start_x, end_x: end_x, y: y}
-      %{acc | finder_matches: acc.finder_matches ++ [line]}
+      %{acc | finder_matches: [line | acc.finder_matches]}
     else
       acc
     end
@@ -193,23 +193,23 @@ defmodule QQR.Locator do
       end_x = x - s4
       start_x = end_x - s3
       line = %{start_x: start_x, end_x: end_x, y: y}
-      %{acc | alignment_matches: acc.alignment_matches ++ [line]}
+      %{acc | alignment_matches: [line | acc.alignment_matches]}
     else
       acc
     end
   end
 
   defp update_active_quads(active, matches, y, min_height) do
-    {still_active, _consumed} =
-      Enum.reduce(matches, {active, []}, fn line, {quads, used} ->
+    still_active =
+      Enum.reduce(matches, active, fn line, quads ->
         case find_matching_quad(quads, line) do
           {matched, rest} ->
             updated = %{matched | bottom: line}
-            {rest ++ [updated], used}
+            [updated | rest]
 
           nil ->
             new_quad = %{top: line, bottom: line}
-            {quads ++ [new_quad], used}
+            [new_quad | quads]
         end
       end)
 
@@ -407,7 +407,7 @@ defmodule QQR.Locator do
        do: {switch_points, current_pixel}
 
   defp update_switch_points(_pixel, current_pixel, switch_points, real_x, real_y, max_switches) do
-    new_points = switch_points ++ [{real_x, real_y}]
+    new_points = [{real_x, real_y} | switch_points]
 
     if Kernel.length(new_points) == max_switches + 1,
       do: throw({:done, build_distances(new_points, max_switches)})
@@ -415,7 +415,9 @@ defmodule QQR.Locator do
     {new_points, not current_pixel}
   end
 
-  defp build_distances(switch_points, length) do
+  defp build_distances(switch_points_reversed, length) do
+    switch_points = Enum.reverse(switch_points_reversed)
+
     Enum.map(0..(length - 1), fn i ->
       case {Enum.at(switch_points, i), Enum.at(switch_points, i + 1)} do
         {nil, _} -> 0

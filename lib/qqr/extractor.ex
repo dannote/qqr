@@ -65,20 +65,25 @@ defmodule QQR.Extractor do
       dy1 = y2 - y3
       dy2 = y4 - y3
       denominator = dx1 * dy2 - dx2 * dy1
-      a13 = (dx3 * dy2 - dx2 * dy3) / denominator
-      a23 = (dx1 * dy3 - dx3 * dy1) / denominator
 
-      {
-        x2 - x1 + a13 * x2,
-        y2 - y1 + a13 * y2,
-        a13,
-        x4 - x1 + a23 * x4,
-        y4 - y1 + a23 * y4,
-        a23,
-        x1 / 1,
-        y1 / 1,
-        1.0
-      }
+      if abs(denominator) < 1.0e-10 do
+        {x2 - x1, y2 - y1, 0.0, x4 - x1, y4 - y1, 0.0, x1 / 1, y1 / 1, 1.0}
+      else
+        a13 = (dx3 * dy2 - dx2 * dy3) / denominator
+        a23 = (dx1 * dy3 - dx3 * dy1) / denominator
+
+        {
+          x2 - x1 + a13 * x2,
+          y2 - y1 + a13 * y2,
+          a13,
+          x4 - x1 + a23 * x4,
+          y4 - y1 + a23 * y4,
+          a23,
+          x1 / 1,
+          y1 / 1,
+          1.0
+        }
+      end
     end
   end
 
@@ -120,6 +125,7 @@ defmodule QQR.Extractor do
   @spec transform_point(transform(), number(), number()) :: point()
   def transform_point({a11, a12, a13, a21, a22, a23, a31, a32, a33}, x, y) do
     denominator = a13 * x + a23 * y + a33
+    denominator = if abs(denominator) < 1.0e-10, do: 1.0e-10, else: denominator
     {(a11 * x + a21 * y + a31) / denominator, (a12 * x + a22 * y + a32) / denominator}
   end
 end

@@ -88,15 +88,21 @@ defmodule QQR.Decoder do
   end
 
   defp rs_correct_blocks(data_blocks) do
-    Enum.reduce_while(data_blocks, {:ok, []}, fn {num_data, codewords}, {:ok, acc} ->
-      case ReedSolomon.decode(codewords, length(codewords) - num_data) do
-        {:ok, corrected} ->
-          {:cont, {:ok, acc ++ Enum.take(corrected, num_data)}}
+    result =
+      Enum.reduce_while(data_blocks, {:ok, []}, fn {num_data, codewords}, {:ok, acc} ->
+        case ReedSolomon.decode(codewords, length(codewords) - num_data) do
+          {:ok, corrected} ->
+            {:cont, {:ok, [Enum.take(corrected, num_data) | acc]}}
 
-        :error ->
-          {:halt, :error}
-      end
-    end)
+          :error ->
+            {:halt, :error}
+        end
+      end)
+
+    case result do
+      {:ok, chunks} -> {:ok, chunks |> Enum.reverse() |> List.flatten()}
+      :error -> :error
+    end
   end
 
   defp read_version(%BitMatrix{height: dimension} = matrix) do
@@ -293,8 +299,9 @@ defmodule QQR.Decoder do
   defp distribute_codewords(codewords, blocks, ec_per_block) do
     num_blocks = length(blocks)
     short_data_size = Enum.min(blocks)
+    blocks_tuple = List.to_tuple(blocks)
 
-    block_data = List.duplicate([], num_blocks)
+    block_data = :array.new(num_blocks, default: [])
 
     {block_data, codewords} =
       if short_data_size > 0 do
@@ -307,9 +314,9 @@ defmodule QQR.Decoder do
 
     {block_data, codewords} =
       Enum.reduce(0..(num_blocks - 1), {block_data, codewords}, fn idx, {bd, cw} ->
-        if Enum.at(blocks, idx) > short_data_size do
+        if elem(blocks_tuple, idx) > short_data_size do
           [h | rest] = cw
-          {List.update_at(bd, idx, &(&1 ++ [h])), rest}
+          {:array.set(idx, [h | :array.get(idx, bd)], bd), rest}
         else
           {bd, cw}
         end
@@ -324,13 +331,14 @@ defmodule QQR.Decoder do
         {block_data, codewords}
       end
 
-    Enum.zip(blocks, block_data)
-    |> Enum.map(fn {data_size, cw} -> {data_size, cw} end)
+    Enum.map(0..(num_blocks - 1), fn idx ->
+      {elem(blocks_tuple, idx), Enum.reverse(:array.get(idx, block_data))}
+    end)
   end
 
   defp round_robin_one(block_data, codewords, num_blocks) do
     Enum.reduce(0..(num_blocks - 1), {block_data, codewords}, fn idx, {bd, [h | rest]} ->
-      {List.update_at(bd, idx, &(&1 ++ [h])), rest}
+      {:array.set(idx, [h | :array.get(idx, bd)], bd), rest}
     end)
   end
 

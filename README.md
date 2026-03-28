@@ -65,8 +65,9 @@ RGBA pixels → Binarizer → Locator → Extractor → Decoder → text
 ## Supported features
 
 - Versions 1–40, all four error correction levels (L/M/Q/H)
-- Numeric, alphanumeric, byte, and kanji data modes
-- ECI indicators
+- Numeric, alphanumeric, and byte data modes
+- Kanji mode (bytes only — Shift-JIS text conversion not yet implemented)
+- ECI segment parsing (designators are consumed but encoding is not applied)
 - Reed-Solomon error correction (Extended Euclidean Algorithm)
 - Perspective correction for skewed images
 - Dark-background (inverted) QR codes

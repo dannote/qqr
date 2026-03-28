@@ -24,10 +24,13 @@ defmodule QQR.DataDecoder do
 
     case decode_loop(stream, size_class, []) do
       {:ok, chunks} ->
-        {text, bytes} =
-          Enum.reduce(chunks, {"", []}, fn chunk, {text, bytes} ->
-            {text <> chunk.text, bytes ++ chunk.bytes}
+        {text_iodata, bytes_reversed} =
+          Enum.reduce(chunks, {[], []}, fn chunk, {text_acc, bytes_acc} ->
+            {[text_acc, chunk.text], [chunk.bytes | bytes_acc]}
           end)
+
+        text = IO.iodata_to_binary(text_iodata)
+        bytes = bytes_reversed |> Enum.reverse() |> List.flatten()
 
         {:ok, %{text: text, bytes: bytes, chunks: chunks, version: version}}
 
@@ -101,8 +104,8 @@ defmodule QQR.DataDecoder do
     end
 
     chars = Integer.to_string(d1) <> Integer.to_string(d2) <> Integer.to_string(d3)
-    new_bytes = [?0 + d1, ?0 + d2, ?0 + d3]
-    decode_numeric_digits(stream, remaining - 3, text <> chars, bytes ++ new_bytes)
+    new_bytes = [?0 + d3, ?0 + d2, ?0 + d1]
+    decode_numeric_digits(stream, remaining - 3, text <> chars, new_bytes ++ bytes)
   end
 
   defp decode_numeric_digits(stream, 2, text, bytes) do
@@ -115,7 +118,7 @@ defmodule QQR.DataDecoder do
     end
 
     chars = Integer.to_string(d1) <> Integer.to_string(d2)
-    {text <> chars, bytes ++ [?0 + d1, ?0 + d2], stream}
+    {text <> chars, [?0 + d2, ?0 + d1 | bytes], stream}
   end
 
   defp decode_numeric_digits(stream, 1, text, bytes) do
@@ -125,10 +128,10 @@ defmodule QQR.DataDecoder do
       raise "Invalid numeric digit: #{digit}"
     end
 
-    {text <> Integer.to_string(digit), bytes ++ [?0 + digit], stream}
+    {text <> Integer.to_string(digit), [?0 + digit | bytes], stream}
   end
 
-  defp decode_numeric_digits(stream, 0, text, bytes), do: {text, bytes, stream}
+  defp decode_numeric_digits(stream, 0, text, bytes), do: {text, Enum.reverse(bytes), stream}
 
   defp decode_alphanumeric(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.alphanumeric, size_class)
@@ -151,7 +154,7 @@ defmodule QQR.DataDecoder do
 
     ch1 = Enum.at(@alphanumeric_chars, c1)
     ch2 = Enum.at(@alphanumeric_chars, c2)
-    decode_alphanumeric_chars(stream, remaining - 2, text <> <<ch1, ch2>>, bytes ++ [ch1, ch2])
+    decode_alphanumeric_chars(stream, remaining - 2, text <> <<ch1, ch2>>, [ch2, ch1 | bytes])
   end
 
   defp decode_alphanumeric_chars(stream, 1, text, bytes) do
@@ -162,21 +165,22 @@ defmodule QQR.DataDecoder do
     end
 
     ch = Enum.at(@alphanumeric_chars, val)
-    {text <> <<ch>>, bytes ++ [ch], stream}
+    {text <> <<ch>>, [ch | bytes], stream}
   end
 
-  defp decode_alphanumeric_chars(stream, 0, text, bytes), do: {text, bytes, stream}
+  defp decode_alphanumeric_chars(stream, 0, text, bytes), do: {text, Enum.reverse(bytes), stream}
 
   defp decode_byte(stream, size_class) do
     count_bits = Enum.at(@count_bit_sizes.byte, size_class)
     {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {bytes, stream} =
+    {bytes_reversed, stream} =
       Enum.reduce(1..count//1, {[], stream}, fn _, {acc, s} ->
         {byte, s} = BitStream.read_bits(s, 8)
-        {acc ++ [byte], s}
+        {[byte | acc], s}
       end)
 
+    bytes = Enum.reverse(bytes_reversed)
     text = :erlang.list_to_binary(bytes)
     {:ok, %{mode: :byte, text: text, bytes: bytes}, stream}
   rescue
@@ -187,7 +191,7 @@ defmodule QQR.DataDecoder do
     count_bits = Enum.at(@count_bit_sizes.kanji, size_class)
     {count, stream} = BitStream.read_bits(stream, count_bits)
 
-    {bytes, stream} =
+    {bytes_reversed, stream} =
       Enum.reduce(1..count//1, {[], stream}, fn _, {acc, s} ->
         {val, s} = BitStream.read_bits(s, 13)
 
@@ -195,9 +199,10 @@ defmodule QQR.DataDecoder do
 
         hi = Bitwise.bsr(combined, 8) |> Bitwise.band(0xFF)
         lo = Bitwise.band(combined, 0xFF)
-        {acc ++ [hi, lo], s}
+        {[lo, hi | acc], s}
       end)
 
+    bytes = Enum.reverse(bytes_reversed)
     {:ok, %{mode: :kanji, text: "", bytes: bytes}, stream}
   rescue
     e -> {:error, Exception.message(e)}
