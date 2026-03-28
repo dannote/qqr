@@ -8,6 +8,6 @@ defmodule QQR.Result do
           bytes: [non_neg_integer()],
           chunks: [QQR.Chunk.t()],
           version: pos_integer(),
-          location: QQR.location() | nil
+          location: QQR.Location.t() | nil
         }
 end

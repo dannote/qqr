@@ -25,18 +25,7 @@ defmodule QQR do
 
   alias QQR.{Binarizer, BitMatrix, Decoder, Extractor, Locator, Result, SVG}
 
-  @type location :: %{
-          top_left_corner: point(),
-          top_right_corner: point(),
-          bottom_left_corner: point(),
-          bottom_right_corner: point(),
-          top_left_finder: point(),
-          top_right_finder: point(),
-          bottom_left_finder: point(),
-          alignment: point() | nil
-        }
-
-  @type point :: {number(), number()}
+  @type location :: QQR.Location.t()
 
   @type encode_option ::
           {:ec_level, :low | :medium | :quartile | :high}
@@ -100,7 +89,6 @@ defmodule QQR do
   @spec to_svg_iodata(String.t(), keyword()) :: iodata()
   def to_svg_iodata(text, opts \\ []) do
     {encode_opts, svg_opts} = split_opts(opts)
-    validate_encode_opts!(encode_opts)
 
     case encode(text, encode_opts) do
       {:ok, matrix} -> SVG.to_iodata(matrix, svg_opts)
@@ -210,7 +198,7 @@ defmodule QQR do
 
     case Decoder.decode(extracted) do
       {:ok, decoded} ->
-        {:ok, Map.put(decoded, :location, build_location(location, mapping_fn))}
+        {:ok, %{decoded | location: build_location(location, mapping_fn)}}
 
       :error ->
         nil
@@ -234,7 +222,7 @@ defmodule QQR do
   defp build_location(location, mapping_fn) do
     dim = location.dimension
 
-    %{
+    %QQR.Location{
       top_left_corner: mapping_fn.(0, 0),
       top_right_corner: mapping_fn.(dim, 0),
       bottom_left_corner: mapping_fn.(0, dim),
