@@ -69,8 +69,8 @@ case QQR.decode(rgba_binary, width, height) do
     result.text     #=> "https://example.com"
     result.version  #=> 3
     result.bytes    #=> [104, 116, 116, 112, ...]
-    result.chunks   #=> [%{mode: :byte, text: "https://example.com", bytes: [...]}]
-    result.location #=> %{top_left_corner: {10.5, 10.5}, ...}
+    result.chunks   #=> [%QQR.Chunk{mode: :byte, text: "https://example.com", bytes: [...]}]
+    result.location #=> %QQR.Location{top_left_corner: {10.5, 10.5}, ...}
 
   :error ->
     # no QR code found
